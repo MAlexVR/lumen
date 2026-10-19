@@ -3,7 +3,7 @@
   import Icon from "../../lib/design/Icon.svelte";
   import { t } from "../../lib/i18n/index.svelte";
 
-  let { label, ondelete }: { label: string; ondelete: () => void } = $props();
+  let { label, ondelete, video = false }: { label: string; ondelete: () => void; video?: boolean } = $props();
   let open = $state(false);
   /** Open towards the right when there is no room on the left. */
   let alignLeft = $state(false);
@@ -58,7 +58,7 @@
     <ul class="menu" class:left={alignLeft} id="menu-{uid}" role="menu" bind:this={menu}>
       <li role="none">
         <button type="button" role="menuitem" onclick={choose}>
-          <Icon name="trash" size={16} />{t("del_menu_item")}
+          <Icon name="trash" size={16} />{t(video ? "del_menu_video" : "del_menu_item")}
         </button>
       </li>
     </ul>

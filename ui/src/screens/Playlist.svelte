@@ -9,6 +9,9 @@
   import { flattenCourse, nextUnwatched } from "../lib/logic/progress";
   import { displayTitle } from "../lib/logic/title";
   import { previewSrc } from "../lib/logic/preview";
+  import ItemMenu from "./library/ItemMenu.svelte";
+  import DeleteDialog from "./library/DeleteDialog.svelte";
+  import { deletion } from "../lib/state/deletion.svelte";
   import { app } from "../lib/state/app.svelte";
   import { href } from "../lib/state/router.svelte";
 
@@ -53,7 +56,7 @@
       {#each flat as f, n (f.lesson.key)}
         {@const done = watched.has(f.lesson.key)}
         {@const l = f.lesson}
-        <li>
+        <li class="item">
           <a class="row" href={href({ name: "watch", group, key: l.key })} class:done>
             <span class="n num">{String(n + 1).padStart(2, "0")}</span>
             <span class="thumb">
@@ -74,6 +77,9 @@
               <span>{done ? t("yt_video_seen") : l.hasVideo ? t("yt_video_new") : t("no_video")}</span>
             </span>
           </a>
+          <span class="menu-slot">
+            <ItemMenu video label={displayTitle(l.title)} ondelete={() => deletion.openLesson(group, l.key)} />
+          </span>
         </li>
       {/each}
     </ol>
@@ -85,7 +91,18 @@
   </div>
 {/if}
 
+<DeleteDialog onclosed={() => undefined} />
+
 <style>
+  .item {
+    position: relative;
+  }
+  .menu-slot {
+    position: absolute;
+    right: var(--s-2);
+    top: 50%;
+    transform: translateY(-50%);
+  }
   .gone {
     display: grid;
     gap: var(--s-4);
@@ -140,7 +157,7 @@
     grid-template-columns: 40px 128px minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--s-4);
-    padding: var(--s-3) var(--s-2);
+    padding: var(--s-3) 56px var(--s-3) var(--s-2);
     border-bottom: 1px solid var(--line);
     color: inherit;
     text-decoration: none;

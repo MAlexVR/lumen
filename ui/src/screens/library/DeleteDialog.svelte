@@ -55,8 +55,12 @@
       <p class="muted" role="status">{t("del_loading")}</p>
     {:else if preview}
       <ul class="facts num">
-        <li>{tn("del_lessons", preview.lessons)}</li>
-        <li>{t("del_with_video", { n: preview.lessonsWithVideo })}</li>
+        {#if preview.kind === "lesson"}
+          <li>{tn("videos", 1)}</li>
+        {:else}
+          <li>{tn("del_lessons", preview.lessons)}</li>
+          <li>{t("del_with_video", { n: preview.lessonsWithVideo })}</li>
+        {/if}
         <li class="space">{t("del_space", { size: formatBytes(preview.bytes, preview.bytesApprox, i18n.locale) })}</li>
       </ul>
       <p class="where"><span class="eyebrow">{t("del_path")}</span><code title={preview.path}>{preview.path}</code></p>

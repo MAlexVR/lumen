@@ -5,6 +5,7 @@
   import CardPreview from "../lib/components/CardPreview.svelte";
   import { cardPreviewFor } from "../lib/logic/cardPreview";
   import ProgressLine from "../lib/components/ProgressLine.svelte";
+  import DeleteDialog from "./library/DeleteDialog.svelte";
   import Playlist from "./Playlist.svelte";
   import ModuleRow from "./course/ModuleRow.svelte";
   import { t, tn } from "../lib/i18n/index.svelte";
@@ -88,6 +89,7 @@
       {/each}
     </ol>
   </div>
+  <DeleteDialog onclosed={() => undefined} />
 {:else}
   <div class="gone" role="status">
     <p>{t("gone_course")}</p>

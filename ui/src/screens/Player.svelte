@@ -8,6 +8,7 @@
   import { app } from "../lib/state/app.svelte";
   import { href, navigate } from "../lib/state/router.svelte";
   import Description from "./player/Description.svelte";
+  import DeleteDialog from "./library/DeleteDialog.svelte";
   import LessonList from "./player/LessonList.svelte";
   import VideoStage from "./player/VideoStage.svelte";
   import type { Resource } from "../lib/types";
@@ -294,6 +295,8 @@
     <a class="btn btn-quiet" href={href({ name: "library", platform: null })}>{t("gone_back")}</a>
   </div>
 {/if}
+
+<DeleteDialog onclosed={() => undefined} />
 
 <style>
   .gone {

@@ -133,6 +133,10 @@ for size in 760x520 1280x800; do
   shot yt-biblioteca "$size" --route "#/library/youtube" --after 1200
   shot yt-lista "$size" --route "#/course/youtube%2FCurso%20de%20guitarra%20ac%C3%BAstica%20desde%20cero/1" --after 1200
   shot yt-inicio "$size" --route "#/" --js 'document.querySelector("main").scrollTop=1e5' --after 1200
+  shot yt-eliminar-video "$size" --route "#/library/youtube" \
+    --js 'document.querySelector(".vgrid .kebab").click();setTimeout(()=>document.querySelector("[role=menuitem]").click(),150)' --after 1200
+  shot yt-menu-leccion "$size" --route "#/course/ACADEMIA%20AURORA/5" \
+    --js 'document.querySelector(".toggle").click();setTimeout(()=>document.querySelector(".lrow .kebab").click(),250)' --after 900
   shot biblioteca-eliminar-menu "$size" --route "#/library" --js 'document.querySelector(".card .kebab").click()' --after 600
   shot eliminar-dialogo "$size" --route "#/library" --js "$OPEN_DELETE" --after 1200
   shot eliminar-descarga-en-curso "$size" --page "index.html?delete=running" --route "#/library" --js "$OPEN_DELETE" --after 1200

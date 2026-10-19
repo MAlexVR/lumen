@@ -166,7 +166,12 @@
         <h3 class="sub">{t("yt_videos_section")}</h3>
         <ul class="vgrid">
           {#each yt.videos as v, n (v.lesson.key)}
-            <li class="card"><YtVideo item={v} index={n + 1} /></li>
+            <li class="card">
+              <span class="card-menu">
+                <ItemMenu video label={displayTitle(v.lesson.title)} ondelete={() => deletion.openLesson(v.group.id, v.lesson.key)} />
+              </span>
+              <YtVideo item={v} index={n + 1} />
+            </li>
           {/each}
         </ul>
       {/if}

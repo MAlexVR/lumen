@@ -5,6 +5,8 @@
   import Icon from "../../lib/design/Icon.svelte";
   import { t } from "../../lib/i18n/index.svelte";
   import { courseStats } from "../../lib/logic/progress";
+  import ItemMenu from "../library/ItemMenu.svelte";
+  import { deletion } from "../../lib/state/deletion.svelte";
   import { wording } from "../../lib/logic/videos";
   import { app } from "../../lib/state/app.svelte";
   import { href } from "../../lib/state/router.svelte";
@@ -53,7 +55,7 @@
         {#each section.lessons as lesson (lesson.key)}
           {@const done = watched.has(lesson.key)}
           {@const current = lesson.key === currentKey}
-          <li>
+          <li class="lrow">
             <a
               href={href({ name: "watch", group, key: lesson.key })}
               aria-current={current ? "true" : undefined}
@@ -70,6 +72,9 @@
                 {done ? t("watched") : lesson.hasVideo ? t("not_watched") : t("no_video")}
               </span>
             </a>
+            <span class="menu-slot">
+              <ItemMenu video label={displayTitle(lesson.title)} ondelete={() => deletion.openLesson(group, lesson.key)} />
+            </span>
           </li>
         {/each}
       </ol>
@@ -159,5 +164,17 @@
   }
   a[aria-current="true"] .mark {
     color: var(--lumen);
+  }
+  .lrow {
+    position: relative;
+  }
+  .lrow > a {
+    padding-right: 44px;
+  }
+  .menu-slot {
+    position: absolute;
+    right: var(--s-1);
+    top: 50%;
+    transform: translateY(-50%);
   }
 </style>

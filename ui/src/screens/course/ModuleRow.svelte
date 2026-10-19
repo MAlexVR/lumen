@@ -2,6 +2,8 @@
   import { displayTitle } from "../../lib/logic/title";
   import Icon from "../../lib/design/Icon.svelte";
   import ProgressLine from "../../lib/components/ProgressLine.svelte";
+  import ItemMenu from "../library/ItemMenu.svelte";
+  import { deletion } from "../../lib/state/deletion.svelte";
   import { t } from "../../lib/i18n/index.svelte";
   import { flattenCourse, nextUnwatched, sectionStats } from "../../lib/logic/progress";
   import { href, navigate } from "../../lib/state/router.svelte";
@@ -65,7 +67,7 @@
   <ol class="lessons" id="lessons-{uid}" hidden={!open}>
     {#each section.lessons as lesson (lesson.key)}
       {@const done = watched.has(lesson.key)}
-      <li>
+      <li class="lrow">
         <a href={href({ name: "watch", group, key: lesson.key })} class:done class:novideo={!lesson.hasVideo}>
           <span class="mark" aria-hidden="true">
             <Icon name={done ? "check" : lesson.hasVideo ? "play" : "noVideo"} size={14} />
@@ -75,6 +77,9 @@
             {done ? t("watched") : lesson.hasVideo ? t("not_watched") : t("no_video")}
           </span>
         </a>
+        <span class="menu-slot">
+          <ItemMenu video label={displayTitle(lesson.title)} ondelete={() => deletion.openLesson(group, lesson.key)} />
+        </span>
       </li>
     {/each}
   </ol>
@@ -205,5 +210,17 @@
     .lessons {
       padding-left: var(--s-2);
     }
+  }
+  .lrow {
+    position: relative;
+  }
+  .lrow > a {
+    padding-right: 56px;
+  }
+  .menu-slot {
+    position: absolute;
+    right: var(--s-2);
+    top: 50%;
+    transform: translateY(-50%);
   }
 </style>

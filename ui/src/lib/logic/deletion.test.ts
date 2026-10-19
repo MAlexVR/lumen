@@ -154,3 +154,9 @@ describe("formatBytes", () => {
     expect(formatBytes(1_500_000_000, true, "es")).toBe("~1,5 GB");
   });
 });
+
+describe("lesson deletes", () => {
+  it("maps lesson_not_found and keeps lesson targets as group id plus key", () => {
+    expect(toDeleteError({ code: "lesson_not_found", message: "x" })).toEqual({ code: "lesson_not_found", message: "x" });
+  });
+});

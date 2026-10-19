@@ -69,6 +69,21 @@ export function createLibraryMock(params: URLSearchParams, library: Library): Li
     },
     libraryDeletePreview: async (target): Promise<DeletePreview> => {
       const g = find(target.group);
+      if (target.lesson) {
+        const l = g?.courses.flatMap((x) => x.sections.flatMap((sec) => sec.lessons)).find((x) => x.key === target.lesson);
+        if (!g || !l || del === "notfound") throw { code: "lesson_not_found", message: "lesson not found" };
+        return {
+          name: l.title,
+          platform: g.platform,
+          kind: "lesson",
+          lessons: 1,
+          lessonsWithVideo: l.hasVideo ? 1 : 0,
+          bytes: 87_400_000,
+          bytesApprox: false,
+          path: l.video ?? "",
+          runningDownload: del === "running",
+        };
+      }
       const c = courseOf(target.group, target.course);
       if (!g || (target.course && !c) || del === "notfound") throw { code: "not_found", message: "not found" };
       const lessons = (c ? [c] : g.courses).flatMap((x) => x.sections.flatMap((s) => s.lessons));
@@ -90,6 +105,23 @@ export function createLibraryMock(params: URLSearchParams, library: Library): Li
       if (del === "trashfail" && !permanent) throw { code: "trash_failed", message: "trash is not available" };
       const g = find(target.group);
       if (!g) throw { code: "not_found", message: "not found" };
+      if (target.lesson) {
+        const key = target.lesson;
+        let found = false;
+        for (const course of g.courses)
+          for (const sec of course.sections) {
+            const before = sec.lessons.length;
+            sec.lessons = sec.lessons.filter((x) => x.key !== key);
+            found ||= sec.lessons.length < before;
+          }
+        if (!found) throw { code: "lesson_not_found", message: "lesson not found" };
+        g.lessonCount = g.courses.reduce((n, x) => n + x.sections.reduce((m, sec) => m + sec.lessons.length, 0), 0);
+        const groupRemoved = g.lessonCount === 0;
+        if (groupRemoved) for (const p of library.platforms) p.groups = p.groups.filter((x) => x.id !== g.id);
+        library.groups = library.platforms.find((p) => p.id === "skool")?.groups ?? [];
+        changeListeners.forEach((cb) => cb({ reason: "deleted", platform: g.platform, group: g.id }));
+        return { deleted: true, movedToTrash: !permanent, bytesFreed: 87_400_000, bytesApprox: false, groupRemoved };
+      }
       const c = courseOf(target.group, target.course);
       const lessons = (c ? [c] : g.courses).flatMap((x) => x.sections.flatMap((s) => s.lessons));
       const bytes = lessons.filter((l) => l.hasVideo).length * 87_400_000;
