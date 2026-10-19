@@ -184,11 +184,38 @@ jobs:
           merge-multiple: true
 
       # Artifacts keep their folder layout (deb/, rpm/, appimage/): flatten them first.
-      - name: Flatten and checksum
+      - name: Flatten the installers
         run: |
           mkdir release-files
           find dist -type f -exec cp {} release-files/ \;
-          cd release-files && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      # The app only installs an update whose minisign signature verifies against the public key
+      # embedded in it. The private key lives only in this repository's encrypted secrets.
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+        working-directory: ui
+
+      - name: Sign the installers
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          for f in release-files/*.rpm release-files/*.deb release-files/*.AppImage release-files/*.exe; do
+            pnpm tauri signer sign "$f"
+          done
+          ls release-files/*.sig | wc -l | xargs -I{} test {} -eq 4
+
+      - name: Checksums
+        run: cd release-files && sha256sum -- * > SHA256SUMS.txt && cat SHA256SUMS.txt
 
       - name: Publish the release
         run: |
