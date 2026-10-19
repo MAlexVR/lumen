@@ -28,6 +28,9 @@ lumen-pluralsight.workspace = true
 thiserror.workspace = true
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 trash = "5"
+minisign-verify = "0.2"
+base64 = "0.22"
+sha2 = "0.10"
 tokio = { workspace = true, features = ["time"] }
 
 [dev-dependencies]

@@ -2239,6 +2239,7 @@ name = "lumen"
 version = "0.3.3"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "lumen-core",
  "lumen-download",
  "lumen-hotmart",
@@ -2247,9 +2248,11 @@ dependencies = [
  "lumen-skool",
  "lumen-udemy",
  "lumen-youtube",
+ "minisign-verify",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -2436,6 +2439,12 @@ dependencies = [
  "mime",
  "unicase",
 ]
+
+[[package]]
+name = "minisign-verify"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22f9645cb765ea72b8111f36c522475d2daa0d22c957a9826437e97534bc4e9e"
 
 [[package]]
 name = "miniz_oxide"

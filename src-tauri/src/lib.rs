@@ -10,6 +10,7 @@ mod state;
 mod thumbs;
 mod udemy;
 mod update;
+mod update_verify;
 mod youtube;
 
 use std::future::Future;
