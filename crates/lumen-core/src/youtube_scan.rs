@@ -8,11 +8,13 @@
 
 use std::path::Path;
 
-use crate::model::{youtube_lesson_key, Course, Group, LibraryPlatform, Section};
+use crate::model::{youtube_lesson_key, Collection, Course, Group, LibraryPlatform, Section};
 use crate::scanner::{
     build_lesson, extension, group_status, name_of, ordered_subdirs, split_order_prefix,
 };
 
+/// Folder of single videos (`lumen-youtube` writes it).
+const STANDALONE_FOLDER: &str = "Videos sueltos";
 const DESCRIPTION_TXT: &str = "description.txt";
 const THUMBNAIL_STEM: &str = "thumbnail";
 /// Audio-only downloads (the "audio" preset) play like video.
@@ -27,6 +29,7 @@ pub(crate) fn scan_group(dir: &Path, folder: &str) -> Group {
         let rel = format!("{}/{folder}/{name}", LibraryPlatform::Youtube.dir_name());
         let key = youtube_lesson_key((1, folder), (1, folder), (index, title));
         let mut lesson = build_lesson(&entry.path(), &rel, title, index, key);
+        let mut thumbnails: Vec<String> = Vec::new();
         lesson.resources.retain(|r| {
             let file = r.path.rsplit('/').next().unwrap_or_default();
             if file.eq_ignore_ascii_case(DESCRIPTION_TXT) {
@@ -34,8 +37,16 @@ pub(crate) fn scan_group(dir: &Path, folder: &str) -> Group {
                 return false;
             }
             let stem = file.split('.').next().unwrap_or_default();
-            !(stem == THUMBNAIL_STEM && IMAGE_EXTS.contains(&extension(file).as_str()))
+            let thumb = stem == THUMBNAIL_STEM && IMAGE_EXTS.contains(&extension(file).as_str());
+            if thumb {
+                thumbnails.push(r.path.clone());
+            }
+            !thumb
         });
+        // IMAGE_EXTS is ordered by preference.
+        lesson.thumbnail = IMAGE_EXTS
+            .iter()
+            .find_map(|ext| thumbnails.iter().find(|p| extension(p) == *ext).cloned());
         if lesson.video.is_none() {
             let audio = lesson
                 .resources
@@ -67,6 +78,11 @@ pub(crate) fn scan_group(dir: &Path, folder: &str) -> Group {
         status: group_status(dir),
         lesson_count: Group::count_lessons(&courses),
         courses,
+        collection: Some(if folder == STANDALONE_FOLDER {
+            Collection::Standalone
+        } else {
+            Collection::Playlist
+        }),
     }
 }
 
@@ -228,6 +244,105 @@ mod tests {
             Some("YouTube/Música/02 - Otro/Otro.mp3")
         );
         assert_eq!(l[1].resources.len(), 1, "other files stay resources");
+    }
+
+    #[test]
+    fn only_videos_sueltos_is_a_standalone_collection_and_playlists_say_so() {
+        let tmp = TempDir::new().unwrap();
+        put(tmp.path(), "YouTube/Videos sueltos/01 - Uno/Uno.mp4", "v");
+        put(tmp.path(), "YouTube/Mi lista/01 - A/A.mp4", "v");
+        put(tmp.path(), "Skool/G/01 - G/01 - S/01 - L/a.mp4", "v");
+        let lib = LibraryScanner::new(tmp.path()).scan().unwrap();
+        let yt = &lib.platform(LibraryPlatform::Youtube).unwrap().groups;
+        let by = |n: &str| yt.iter().find(|g| g.name == n).unwrap();
+        assert_eq!(
+            by("Videos sueltos").collection,
+            Some(crate::Collection::Standalone)
+        );
+        assert_eq!(by("Mi lista").collection, Some(crate::Collection::Playlist));
+        let json = serde_json::to_value(&lib).unwrap();
+        let groups = json["platforms"][1]["groups"].as_array().unwrap();
+        let values: Vec<_> = groups
+            .iter()
+            .map(|g| g["collection"].as_str().unwrap().to_string())
+            .collect();
+        assert!(
+            values.contains(&"standalone".to_string()) && values.contains(&"playlist".to_string())
+        );
+        assert!(
+            json["platforms"][0]["groups"][0]
+                .get("collection")
+                .is_none(),
+            "Skool groups carry no collection"
+        );
+    }
+
+    #[test]
+    fn the_youtube_thumbnail_is_exposed_but_not_as_a_resource() {
+        let tmp = TempDir::new().unwrap();
+        put(tmp.path(), "YouTube/L/01 - Con/Con.mp4", "v");
+        put(tmp.path(), "YouTube/L/01 - Con/thumbnail.webp", "w");
+        put(tmp.path(), "YouTube/L/01 - Con/thumbnail.jpg", "j");
+        put(tmp.path(), "YouTube/L/02 - Sin/Sin.mp4", "v");
+        let g = LibraryScanner::new(tmp.path())
+            .scan_platform_group(LibraryPlatform::Youtube, "L")
+            .unwrap();
+        let l = &g.courses[0].sections[0].lessons;
+        assert_eq!(
+            l[0].thumbnail.as_deref(),
+            Some("YouTube/L/01 - Con/thumbnail.jpg"),
+            "jpg is preferred"
+        );
+        assert!(l[0].resources.is_empty());
+        assert_eq!(l[1].thumbnail, None);
+        let json = serde_json::to_value(&l[0]).unwrap();
+        assert_eq!(json["thumbnail"], "YouTube/L/01 - Con/thumbnail.jpg");
+        assert_eq!(
+            serde_json::to_value(&l[1]).unwrap()["thumbnail"],
+            serde_json::Value::Null
+        );
+    }
+
+    #[test]
+    fn lessons_know_their_own_folder_but_never_serialize_it() {
+        let tmp = TempDir::new().unwrap();
+        put(tmp.path(), "YouTube/L/01 - Uno/Uno.mp4", "v");
+        put(tmp.path(), "Skool/G/01 - G/01 - S/01 - Lec/a.mp4", "v");
+        put(
+            tmp.path(),
+            "Hotmart/H - Me/1. M/1. Carpeta/1. Carpeta.mp4",
+            "v",
+        );
+        put(tmp.path(), "Hotmart/H - Me/1. M/2. Suelta.mp4", "v");
+        let s = LibraryScanner::new(tmp.path());
+        let yt = s
+            .scan_platform_group(LibraryPlatform::Youtube, "L")
+            .unwrap();
+        assert_eq!(
+            yt.courses[0].sections[0].lessons[0].dir.as_deref(),
+            Some("YouTube/L/01 - Uno")
+        );
+        let sk = s.scan_platform_group(LibraryPlatform::Skool, "G").unwrap();
+        assert_eq!(
+            sk.courses[0].sections[0].lessons[0].dir.as_deref(),
+            Some("Skool/G/01 - G/01 - S/01 - Lec")
+        );
+        let hm = s
+            .scan_platform_group(LibraryPlatform::Hotmart, "H - Me")
+            .unwrap();
+        let lessons = &hm.courses[0].sections[0].lessons;
+        assert_eq!(
+            lessons[0].dir.as_deref(),
+            Some("Hotmart/H - Me/1. M/1. Carpeta")
+        );
+        assert_eq!(
+            lessons[1].dir, None,
+            "a loose file has no folder of its own"
+        );
+        assert!(serde_json::to_value(&lessons[0])
+            .unwrap()
+            .get("dir")
+            .is_none());
     }
 
     #[test]

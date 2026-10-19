@@ -147,6 +147,7 @@ fn scan_skool_group(dir: &Path, group: &str) -> Group {
         status,
         lesson_count: Group::count_lessons(&courses),
         courses,
+        collection: None,
     }
 }
 
@@ -232,7 +233,9 @@ pub(crate) fn build_lesson(dir: &Path, rel: &str, title: &str, index: u64, key: 
         video: None,
         description: None,
         has_video: false,
+        thumbnail: None,
         resources: Vec::new(),
+        dir: Some(rel.to_string()),
     };
     let mut files = sorted_entries(dir);
     // Numbered files first (by N), `N. Lesson.mp4` before `N. Lesson [id].mp4`;

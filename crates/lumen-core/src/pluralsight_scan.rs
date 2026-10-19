@@ -51,6 +51,7 @@ pub(crate) fn scan_group(dir: &Path, folder: &str) -> Group {
         status: group_status(dir),
         lesson_count: Group::count_lessons(&courses),
         courses,
+        collection: None,
     }
 }
 

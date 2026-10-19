@@ -77,6 +77,7 @@ pub(crate) fn scan_group(dir: &Path, folder: &str) -> Group {
         status: group_status(dir),
         lesson_count: Group::count_lessons(&courses),
         courses,
+        collection: None,
     }
 }
 
@@ -123,7 +124,9 @@ fn module_lessons(dir: &Path, rel: &str, course: (u64, &str), module: (u64, &str
             video: Some(format!("{rel}/{fname}")),
             description,
             has_video: true,
+            thumbnail: None,
             resources: Vec::new(),
+            dir: None,
         });
     }
     lessons.sort_by(|a, b| (a.index, &a.title).cmp(&(b.index, &b.title)));

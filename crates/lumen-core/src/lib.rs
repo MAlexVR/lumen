@@ -13,8 +13,8 @@ mod youtube_scan;
 
 pub use error::ScanError;
 pub use model::{
-    Course, Group, GroupStatus, Lesson, Library, LibraryPlatform, PlatformLibrary, Resource,
-    ResourceKind, Section,
+    Collection, Course, Group, GroupStatus, Lesson, Library, LibraryPlatform, PlatformLibrary,
+    Resource, ResourceKind, Section,
 };
 pub use platform::{
     CancelFlag, CoursePlatform, CourseProgressSink, DownloadOptions, NullSink, PlatformError,

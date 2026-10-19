@@ -199,3 +199,29 @@ fn forgetting_hotmart_groups_uses_the_qualified_id() {
     );
     assert!(s.is_watched("Águila - Ana", "1-A/1-S/1-L").unwrap());
 }
+
+#[test]
+fn forgetting_one_lesson_touches_only_that_key() {
+    let s = store();
+    seed(&s, "G", "1-C/1-S/1-A");
+    s.set_watched("G", "1-C/1-S/2-B", true).unwrap();
+    s.save_position("G", "1-C/1-S/2-B", 7).unwrap();
+    seed(&s, "H", "1-C/1-S/1-A");
+    s.forget_lesson("G", "1-C/1-S/1-A").unwrap();
+    let p = s.group_progress("G").unwrap();
+    assert_eq!(p.watched, vec!["1-C/1-S/2-B"]);
+    assert_eq!(p.positions.len(), 1);
+    assert_eq!(p.last_lesson, None, "the last lesson pointed to it");
+    assert!(
+        s.is_watched("H", "1-C/1-S/1-A").unwrap(),
+        "other groups keep theirs"
+    );
+    s.set_last_lesson("G", "1-C/1-S/2-B").unwrap();
+    s.forget_lesson("G", "1-C/1-S/1-A").unwrap();
+    assert_eq!(
+        s.group_progress("G").unwrap().last_lesson.as_deref(),
+        Some("1-C/1-S/2-B"),
+        "a different last lesson stays"
+    );
+    s.forget_lesson("G", "nope").unwrap();
+}

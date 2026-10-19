@@ -196,6 +196,19 @@ impl ProgressStore {
         Ok(tx.commit()?)
     }
 
+    /// Drops the progress of one lesson: watched flag, saved position and the
+    /// last-lesson pointer when it pointed to it. One transaction.
+    pub fn forget_lesson(&self, group: &str, key: &str) -> Result<(), ProgressError> {
+        let tx = self.conn.unchecked_transaction()?;
+        for table in ["watched", "last_lesson", "positions"] {
+            tx.execute(
+                &format!("DELETE FROM {table} WHERE grp = ?1 AND lesson_key = ?2"),
+                (group, key),
+            )?;
+        }
+        Ok(tx.commit()?)
+    }
+
     /// Drops the entries of `group` whose lesson key starts with `key_prefix`
     /// (a course: `"<index>-<title>/"`). The prefix is matched literally.
     pub fn forget_course(&self, group: &str, key_prefix: &str) -> Result<(), ProgressError> {

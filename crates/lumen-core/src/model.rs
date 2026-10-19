@@ -9,6 +9,14 @@ pub enum GroupStatus {
     Complete,
 }
 
+/// What a YouTube group is: a downloaded playlist or the folder of single videos.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Collection {
+    Playlist,
+    Standalone,
+}
+
 /// Platform folder a group was found under (`<root>/Skool`, `<root>/Hotmart`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -72,6 +80,9 @@ pub struct Group {
     pub status: GroupStatus,
     pub lesson_count: u64,
     pub courses: Vec<Course>,
+    /// YouTube only: a playlist, or the standalone `Videos sueltos` folder.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collection: Option<Collection>,
 }
 
 impl Group {
@@ -111,7 +122,14 @@ pub struct Lesson {
     pub video: Option<String>,
     pub description: Option<String>,
     pub has_video: bool,
+    /// YouTube only: root-relative path of the lesson's own `thumbnail.<ext>`.
+    #[serde(default)]
+    pub thumbnail: Option<String>,
     pub resources: Vec<Resource>,
+    /// Root-relative folder that holds only this lesson (None for loose
+    /// files). Scanner-internal: used to delete one lesson, never serialized.
+    #[serde(skip)]
+    pub dir: Option<String>,
 }
 
 /// What an extra lesson file is.
