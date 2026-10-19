@@ -96,7 +96,7 @@ describe("reduceDelete", () => {
     expect(s).toMatchObject({ step: "confirming", preview });
     s = reduceDelete(s, { type: "confirm", permanent: false });
     expect(s).toMatchObject({ step: "deleting", permanent: false });
-    s = reduceDelete(s, { type: "deleted", result: { deleted: true, movedToTrash: true, bytesFreed: 10, bytesApprox: false } });
+    s = reduceDelete(s, { type: "deleted", result: { deleted: true, movedToTrash: true, bytesFreed: 10, bytesApprox: false, groupRemoved: false } });
     expect(s).toMatchObject({ step: "done", result: { movedToTrash: true } });
   });
 

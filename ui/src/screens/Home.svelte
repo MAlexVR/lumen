@@ -2,10 +2,13 @@
   import Hero from "./home/Hero.svelte";
   import Poster from "../lib/components/Poster.svelte";
   import ProgressLine from "../lib/components/ProgressLine.svelte";
+  import YtPlaylist from "../lib/components/YtPlaylist.svelte";
+  import YtVideo from "../lib/components/YtVideo.svelte";
   import Shelf from "../lib/components/Shelf.svelte";
   import { t, tn } from "../lib/i18n/index.svelte";
   import { continueAcross, shelves } from "../lib/logic/library";
   import { cardPreviewFor } from "../lib/logic/cardPreview";
+  import { isYoutube, wording, youtubeSections } from "../lib/logic/videos";
   import { courseStats, groupStats } from "../lib/logic/progress";
   import { displayTitle } from "../lib/logic/title";
   import { platformById } from "../lib/platforms";
@@ -18,10 +21,12 @@
   const group = $derived(current?.group);
   const watched = $derived(group ? app.watchedOf(group.id) : new Set<string>());
   const overall = $derived(group ? groupStats(group, watched) : null);
-  const rows = $derived(shelves(app.library));
+  const rows = $derived(shelves(app.library).filter((r) => r.platform !== "youtube"));
+  const yt = $derived(youtubeSections(app.groups, ""));
+  const wd = $derived(wording(group?.platform ?? ""));
 
   const inProgress = $derived(
-    app.groups.flatMap((g) => {
+    app.groups.filter((g) => !isYoutube(g.platform)).flatMap((g) => {
       const w = app.watchedOf(g.id);
       return g.courses
         .map((c) => ({ group: g, course: c, stats: courseStats(c, w) }))
@@ -45,7 +50,7 @@
         <span class="big num">{overall.pct}<span class="pct">%</span></span>
         <p class="caption">
           <span class="num strong">{overall.done}</span>
-          {t("of_lessons", { total: overall.total })}
+          {t(wd.ofTotal, { total: overall.total })}
         </p>
       </div>
       <ProgressLine value={overall.pct} label={t("overall")} />
@@ -90,6 +95,21 @@
       {/each}
     </Shelf>
   {/each}
+
+  {#if yt.videos.length}
+    <Shelf title={t("yt_shelf_videos")} meta={tn("videos", yt.videos.length)} href={href({ name: "library", platform: "youtube" })} wide>
+      {#each yt.videos as v, n (v.lesson.key)}
+        <li><YtVideo item={v} index={n + 1} /></li>
+      {/each}
+    </Shelf>
+  {/if}
+  {#if yt.playlists.length}
+    <Shelf title={t("yt_shelf_playlists")} meta={String(yt.playlists.length)} href={href({ name: "library", platform: "youtube" })} wide>
+      {#each yt.playlists as g, n (g.id)}
+        <li><YtPlaylist group={g} index={n + 1} /></li>
+      {/each}
+    </Shelf>
+  {/if}
 </div>
 
 <style>

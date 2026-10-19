@@ -8,9 +8,11 @@
     title: string;
     meta?: string;
     href?: string;
+    /** 16:9 cards (YouTube videos/playlists) instead of 2:3 posters. */
+    wide?: boolean;
     children: Snippet;
   }
-  let { title, meta, href, children }: Props = $props();
+  let { title, meta, href, wide = false, children }: Props = $props();
   let row: HTMLElement | undefined = $state();
   const uid = $props.id();
 
@@ -35,7 +37,7 @@
       </button>
     </div>
   </header>
-  <ul class="row" bind:this={row}>
+  <ul class="row" class:wide bind:this={row}>
     {@render children()}
   </ul>
 </section>
@@ -94,6 +96,9 @@
     scroll-padding-inline: var(--gutter);
     padding: var(--s-1) var(--gutter) var(--s-4);
     scrollbar-width: none;
+  }
+  .row.wide {
+    grid-auto-columns: clamp(220px, 20vw, 300px);
   }
   .row :global(> li) {
     scroll-snap-align: start;

@@ -13,10 +13,12 @@
   import { thumbAt, thumbs } from "../state/thumbs.svelte";
 
   interface Props {
-    /** Media server URL of the lesson video. */
-    src: string;
+    /** Media server URL of the lesson video (null: still image only). */
+    src: string | null;
     /** Library-relative path of the same video (thumbnail key). */
-    path: string;
+    path: string | null;
+    /** The video's own thumbnail file (media server URL): used before asking for a generated one. */
+    still?: string | null;
     /** Saved resume position of that lesson (seconds). */
     resumeAt: number;
     /** Card hovered or focused (set by the parent card). */
@@ -26,7 +28,7 @@
     /** Thumbnail width to request (bigger posters ask for more). */
     width?: number;
   }
-  let { src, path, resumeAt, hot, index, width = 480 }: Props = $props();
+  let { src, path, still = null, resumeAt, hot, index, width = 480 }: Props = $props();
 
   const id = $props.id();
   const WINDOW = 5;
@@ -40,8 +42,16 @@
   let start = 0;
   let dwell: ReturnType<typeof setTimeout> | undefined;
 
-  const item = $derived({ path, atSecs: thumbAt(resumeAt), width });
-  const thumb = $derived(near ? thumbs.lookup(item) : { state: "idle" as const });
+  let stillFailed = $state(false);
+  const useStill = $derived(!!still && !stillFailed);
+  const item = $derived(path ? { path, atSecs: thumbAt(resumeAt), width } : null);
+  const thumb = $derived(
+    useStill && still
+      ? { state: "ready" as const, url: still }
+      : near && item
+        ? thumbs.lookup(item)
+        : { state: "idle" as const },
+  );
   const imgLoaded = $derived(thumb.state === "ready" && loadedUrl === thumb.url);
   const shown = $derived(imgLoaded || playing);
   const hoverDispatch = (a: HoverAction) => (hover = reduceHover(hover, a));
@@ -57,8 +67,8 @@
   });
 
   $effect(() => {
-    if (!near) return;
     const it = item;
+    if (!near || !it || useStill) return;
     void thumbs.generation;
     thumbs.want(it);
     return () => thumbs.leave(it);
@@ -67,7 +77,7 @@
   // Hover/focus: after a short dwell, one card at a time, never on touch or reduced motion.
   $effect(() => {
     clearTimeout(dwell);
-    if (hot && near) {
+    if (hot && near && src) {
       dwell = setTimeout(() => {
         hoverDispatch({
           type: "enter",
@@ -82,7 +92,7 @@
     }
   });
 
-  const previewing = $derived(hover.mode === "playing" && player.id === id && near);
+  const previewing = $derived(hover.mode === "playing" && player.id === id && near && !!src);
 
   $effect(() => {
     if (!previewing) playing = false;
@@ -122,7 +132,7 @@
       draggable="false"
       class:on={imgLoaded}
       onload={() => (loadedUrl = url)}
-      onerror={() => thumbs.fail(item)}
+      onerror={() => (useStill ? (stillFailed = true) : item && thumbs.fail(item))}
     />
   {/if}
   {#if previewing}

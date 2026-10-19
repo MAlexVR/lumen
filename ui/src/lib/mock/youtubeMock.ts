@@ -87,9 +87,10 @@ export function youtubeLibrary(): PlatformLibrary {
       description: `${dir}/description.txt`,
       hasVideo: true,
       resources: [],
+      thumbnail: null,
     };
   };
-  const group = (folder: string, lessons: Lesson[]): Group => ({
+  const group = (folder: string, lessons: Lesson[], collection: "playlist" | "standalone" = "playlist"): Group => ({
     id: `youtube/${folder}`,
     platform: "youtube",
     name: folder,
@@ -97,6 +98,7 @@ export function youtubeLibrary(): PlatformLibrary {
     seller: null,
     status: "complete",
     lessonCount: lessons.length,
+    collection,
     courses: [{ title: folder, index: 1, sections: [{ title: folder, index: 1, lessons }] }],
   });
   const playlist = "Curso de guitarra acústica desde cero";
@@ -110,7 +112,15 @@ export function youtubeLibrary(): PlatformLibrary {
         lesson(playlist, 5, "Arpegios para principiantes"),
         lesson(playlist, 6, "Tu primera canción completa"),
       ]),
-      group("Videos sueltos", [lesson("Videos sueltos", 1, "Cómo grabar voz en casa con un solo micrófono"), lesson("Videos sueltos", 2, "Entrevista: el oficio del luthier", true)]),
+      group(
+        "Videos sueltos",
+        [
+          lesson("Videos sueltos", 1, "Cómo grabar voz en casa con un solo micrófono"),
+          lesson("Videos sueltos", 2, "Entrevista: el oficio del luthier", true),
+          lesson("Videos sueltos", 3, "Paseo sonoro por el mercado de la ciudad"),
+        ],
+        "standalone",
+      ),
     ],
   };
 }

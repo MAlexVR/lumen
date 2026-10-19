@@ -5,6 +5,9 @@
   import { t, tn } from "../lib/i18n/index.svelte";
   import { libraryEntries, platformsPresent, type LibraryEntry } from "../lib/logic/library";
   import { cardPreviewFor } from "../lib/logic/cardPreview";
+  import { youtubeSections } from "../lib/logic/videos";
+  import YtPlaylist from "../lib/components/YtPlaylist.svelte";
+  import YtVideo from "../lib/components/YtVideo.svelte";
   import { courseStats } from "../lib/logic/progress";
   import { displayTitle } from "../lib/logic/title";
   import { platformById } from "../lib/platforms";
@@ -31,14 +34,17 @@
   const entries = $derived(libraryEntries(app.library, active, query));
   const skoolEntries = $derived(entries.filter((e) => e.group.platform === "skool"));
   /** Platforms whose groups are one course each: one shelf of posters per platform. */
-  const SINGLE: PlatformId[] = ["hotmart", "pluralsight", "youtube"];
+  const SINGLE: PlatformId[] = ["hotmart", "pluralsight"];
   const singleSections = $derived(
     SINGLE.map((id) => ({ id, entries: entries.filter((e) => e.group.platform === id) })).filter((x) => x.entries.length),
   );
-  const courseCount = $derived(entries.reduce((n, e) => n + e.courses.length, 0));
+  // YouTube is not a course platform: videos and playlists.
+  const yt = $derived(active && active !== "youtube" ? { videos: [], playlists: [] } : youtubeSections(app.groups, query));
+  const courseCount = $derived(entries.filter((e) => e.group.platform !== "youtube").reduce((n, e) => n + e.courses.length, 0));
   const lessonCount = $derived(
-    entries.reduce((n, e) => n + e.courses.reduce((m, c) => m + c.sections.reduce((k, s) => k + s.lessons.length, 0), 0), 0),
+    entries.filter((e) => e.group.platform !== "youtube").reduce((n, e) => n + e.courses.reduce((m, c) => m + c.sections.reduce((k, s) => k + s.lessons.length, 0), 0), 0),
   );
+  const ytVideoCount = $derived(yt.videos.length + yt.playlists.reduce((n, g) => n + g.lessonCount, 0));
   const statsOf = (e: LibraryEntry, i: number) => courseStats(e.courses[i], app.watchedOf(e.group.id));
 </script>
 
@@ -48,9 +54,15 @@
       <span class="eyebrow">{t("nav_library")}</span>
       <h1 tabindex="-1" bind:this={heading}>{active ? platformById(active)?.name : t("nav_library")}</h1>
       <p class="meta num">
-        <span>{tn("courses", courseCount)}</span>
-        <span aria-hidden="true">·</span>
-        <span>{tn("lessons", lessonCount)}</span>
+        {#if courseCount}
+          <span>{tn("courses", courseCount)}</span>
+          <span aria-hidden="true">·</span>
+          <span>{tn("lessons", lessonCount)}</span>
+        {/if}
+        {#if ytVideoCount}
+          {#if courseCount}<span aria-hidden="true">·</span>{/if}
+          <span>{tn("videos", ytVideoCount)}</span>
+        {/if}
       </p>
     </div>
     <label class="search">
@@ -83,7 +95,7 @@
     </div>
   {/if}
 
-  {#if !entries.length}
+  {#if !entries.length && !yt.videos.length && !yt.playlists.length}
     <p class="empty" role="status">{t("no_results", { q: query.trim() })}</p>
   {/if}
 
@@ -142,6 +154,37 @@
       </ul>
     </section>
   {/each}
+
+  {#if yt.videos.length || yt.playlists.length}
+    <section class="group" aria-labelledby="g-youtube">
+      <header class="ghead">
+        <PlatformChip id="youtube" />
+        <h2 id="g-youtube">{platformById("youtube")?.name}</h2>
+        <span class="gmeta num">{tn("videos", ytVideoCount)}</span>
+      </header>
+      {#if yt.videos.length}
+        <h3 class="sub">{t("yt_videos_section")}</h3>
+        <ul class="vgrid">
+          {#each yt.videos as v, n (v.lesson.key)}
+            <li class="card"><YtVideo item={v} index={n + 1} /></li>
+          {/each}
+        </ul>
+      {/if}
+      {#if yt.playlists.length}
+        <h3 class="sub">{t("yt_playlists_section")}</h3>
+        <ul class="vgrid">
+          {#each yt.playlists as g, n (g.id)}
+            <li class="card">
+              <span class="card-menu">
+                <ItemMenu label={displayTitle(g.title)} ondelete={() => deletion.open(g)} />
+              </span>
+              <YtPlaylist group={g} index={n + 1} />
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+  {/if}
 </div>
 
 <DeleteDialog onclosed={() => heading?.focus()} />
@@ -227,6 +270,19 @@
     inset: auto 0 -1px 0;
     height: 1px;
     background: var(--lumen);
+  }
+  .sub {
+    font-family: var(--font-ui);
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .vgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--s-8) var(--s-6);
   }
   .group {
     display: grid;

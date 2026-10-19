@@ -5,6 +5,7 @@
   import CardPreview from "../lib/components/CardPreview.svelte";
   import { cardPreviewFor } from "../lib/logic/cardPreview";
   import ProgressLine from "../lib/components/ProgressLine.svelte";
+  import Playlist from "./Playlist.svelte";
   import ModuleRow from "./course/ModuleRow.svelte";
   import { t, tn } from "../lib/i18n/index.svelte";
   import { courseStats, flattenCourse, nextUnwatched } from "../lib/logic/progress";
@@ -23,10 +24,12 @@
   const action = $derived(stats?.state === "done" ? "btn_review" : stats?.state === "new" ? "btn_start" : "btn_continue");
 </script>
 
-{#if course && stats}
+{#if g?.platform === "youtube"}
+  <Playlist {group} course={courseIndex} />
+{:else if course && stats}
   <div class="page">
     <a class="back" href={href({ name: "library", platform: g?.platform ?? null })}>
-      <Icon name="arrowLeft" size={16} />{g?.platform === "hotmart" ? "Hotmart" : g?.platform === "pluralsight" ? "Pluralsight" : g?.platform === "youtube" ? "YouTube" : displayTitle(g?.title ?? group)}
+      <Icon name="arrowLeft" size={16} />{g?.platform === "hotmart" ? "Hotmart" : g?.platform === "pluralsight" ? "Pluralsight" : displayTitle(g?.title ?? group)}
     </a>
 
     <header class="head">
@@ -42,9 +45,7 @@
             ? t("hotmart_course")
             : g?.platform === "pluralsight"
               ? t("ps_course")
-              : g?.platform === "youtube"
-                ? t("yt_kind_playlist")
-                : t("course_n", { n: String(course.index).padStart(2, "0") })}
+              : t("course_n", { n: String(course.index).padStart(2, "0") })}
         </span>
         <h1>{displayTitle(course.title)}</h1>
         {#if g?.seller}<p class="seller">{g.seller}</p>{/if}

@@ -3,6 +3,14 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [Unreleased]
+
+### Added
+- Delete a single video from the library (any platform), moved to the trash by default.
+
+### Changed
+- YouTube videos and playlists are shown as videos, not courses: 16:9 video cards, playlist cards and a flat playlist page.
+
 ## [0.3.4] - 2026-10-19
 
 ### Added

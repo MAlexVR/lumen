@@ -10,6 +10,7 @@
   import { heroSource } from "../../lib/logic/thumbs";
   import { thumbAt, thumbs } from "../../lib/state/thumbs.svelte";
   import { formatTime, RESUME_MARGIN } from "../../lib/logic/time";
+  import { isYoutube, wording } from "../../lib/logic/videos";
   import { app } from "../../lib/state/app.svelte";
   import { href } from "../../lib/state/router.svelte";
   import type { Group } from "../../lib/types";
@@ -21,6 +22,12 @@
   }
   let { group, target, watched }: Props = $props();
 
+  const wd = $derived(wording(group.platform));
+  const yt = $derived(isYoutube(group.platform));
+  const loose = $derived(group.collection === "standalone");
+  const upHref = $derived(
+    loose ? href({ name: "library", platform: "youtube" }) : href({ name: "course", group: group.id, course: target.item.course.index }),
+  );
   const item = $derived(target.item);
   const cStats = $derived(courseStats(item.course, watched));
   const courseFlat = $derived(flattenCourse(item.course));
@@ -76,17 +83,19 @@
   <div class="text">
     <span class="eyebrow lead">{t(resume ? "continue_eyebrow" : "start_eyebrow")}</span>
     <p class="crumb">
-      <a href={href({ name: "course", group: group.id, course: item.course.index })}>{displayTitle(item.course.title)}</a>
-      <Icon name="chevronRight" size={14} />
-      <span>{displayTitle(item.section.title)}</span>
+      <a href={upHref}>{loose ? t("videos_title") : displayTitle(item.course.title)}</a>
+      {#if !yt}
+        <Icon name="chevronRight" size={14} />
+        <span>{displayTitle(item.section.title)}</span>
+      {/if}
     </p>
     {#if group.seller}<p class="seller">{group.seller}</p>{/if}
     <h1 id="hero-title">{displayTitle(item.lesson.title)}</h1>
 
     <dl class="facts">
       <div>
-        <dt class="eyebrow">{t("lessons")}</dt>
-        <dd class="num">{t("lesson_of", { n: position, total: courseFlat.length })}</dd>
+        <dt class="eyebrow">{t(wd.title)}</dt>
+        <dd class="num">{t(wd.of, { n: position, total: courseFlat.length })}</dd>
       </div>
       {#if showResume}
         <div>
@@ -110,8 +119,8 @@
         <Icon name="play" size={16} />
         {t(resume ? "btn_continue" : "btn_start")}
       </a>
-      <a class="btn btn-quiet" href={href({ name: "course", group: group.id, course: item.course.index })}>
-        {t("view_course")}
+      <a class="btn btn-quiet" href={upHref}>
+        {t(!yt ? "view_course" : loose ? "yt_view_videos" : "yt_view_list")}
       </a>
       {#if isWatched}
         <span class="watched"><Icon name="check" size={16} />{t("watched")}</span>

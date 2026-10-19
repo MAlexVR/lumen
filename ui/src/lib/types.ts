@@ -19,6 +19,8 @@ export interface Lesson {
   description: string | null;
   hasVideo: boolean;
   resources: Resource[];
+  /** YouTube: library-relative path of the video's own thumbnail file. */
+  thumbnail?: string | null;
 }
 
 export interface Section {
@@ -47,6 +49,8 @@ export interface Group {
   seller: string | null;
   status: GroupStatus;
   lessonCount: number;
+  /** YouTube only: `standalone` is the "Videos sueltos" folder, the rest are playlists. */
+  collection?: "playlist" | "standalone";
   courses: Course[];
 }
 
@@ -202,12 +206,14 @@ export interface DeleteTarget {
   platform: PlatformId;
   group: string;
   course?: string;
+  /** One lesson, by the key the scan returns (never a path). */
+  lesson?: string;
 }
 
 export interface DeletePreview {
   name: string;
   platform: PlatformId;
-  kind: "group" | "course";
+  kind: "group" | "course" | "lesson";
   lessons: number;
   lessonsWithVideo: number;
   bytes: number;
@@ -221,9 +227,10 @@ export interface DeleteResult {
   movedToTrash: boolean;
   bytesFreed: number;
   bytesApprox: boolean;
+  groupRemoved: boolean;
 }
 
-export type DeleteErrorCode = "invalid_target" | "not_found" | "download_running" | "trash_failed" | "internal";
+export type DeleteErrorCode = "lesson_not_found" | "invalid_target" | "not_found" | "download_running" | "trash_failed" | "internal";
 
 export interface DeleteError {
   code: DeleteErrorCode;

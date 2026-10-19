@@ -25,7 +25,7 @@ export function deleteTarget(group: Group, course?: Course): DeleteTarget {
   return { platform: group.platform, group: group.id };
 }
 
-const CODES: readonly DeleteErrorCode[] = ["invalid_target", "not_found", "download_running", "trash_failed", "internal"];
+const CODES: readonly DeleteErrorCode[] = ["lesson_not_found", "invalid_target", "not_found", "download_running", "trash_failed", "internal"];
 
 export function toDeleteError(err: unknown): DeleteError {
   if (typeof err === "string") return { code: "internal", message: err };

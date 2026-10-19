@@ -4,6 +4,7 @@
   import Icon from "../lib/design/Icon.svelte";
   import { t } from "../lib/i18n/index.svelte";
   import { flattenCourse, positionOf } from "../lib/logic/progress";
+  import { wording } from "../lib/logic/videos";
   import { app } from "../lib/state/app.svelte";
   import { href, navigate } from "../lib/state/router.svelte";
   import Description from "./player/Description.svelte";
@@ -119,7 +120,7 @@
           aria-controls="player-lessons"
           onclick={() => (drawer = !drawer)}
         >
-          <Icon name="list" size={18} />{t("lessons")}
+          <Icon name="list" size={18} />{t(wording(app.group(group)?.platform ?? "").title)}
         </button>
       </div>
 
@@ -168,7 +169,7 @@
       <article class="info">
         <div class="headrow">
           <header>
-            <span class="eyebrow num">{t("lesson_of", { n: position, total: courseFlat.length })}</span>
+            <span class="eyebrow num">{t(wording(app.group(group)?.platform ?? "").of, { n: position, total: courseFlat.length })}</span>
             <h1 tabindex="-1" title={displayTitle(lesson.title)}>{displayTitle(lesson.title)}</h1>
           </header>
 

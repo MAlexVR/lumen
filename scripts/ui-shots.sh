@@ -130,6 +130,9 @@ for size in 760x520 1280x800; do
     shot "ajustes-inst-$nm" "$size" --page "index.html?update=$q" --route "#/settings" \
       --js "$UPD_CHECK;setTimeout(()=>{$UPD_INSTALL;${step}setTimeout(()=>{$UPD_SCROLL},900)},500)" --after 5200
   done
+  shot yt-biblioteca "$size" --route "#/library/youtube" --after 1200
+  shot yt-lista "$size" --route "#/course/youtube%2FCurso%20de%20guitarra%20ac%C3%BAstica%20desde%20cero/1" --after 1200
+  shot yt-inicio "$size" --route "#/" --js 'document.querySelector("main").scrollTop=1e5' --after 1200
   shot biblioteca-eliminar-menu "$size" --route "#/library" --js 'document.querySelector(".card .kebab").click()' --after 600
   shot eliminar-dialogo "$size" --route "#/library" --js "$OPEN_DELETE" --after 1200
   shot eliminar-descarga-en-curso "$size" --page "index.html?delete=running" --route "#/library" --js "$OPEN_DELETE" --after 1200

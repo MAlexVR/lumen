@@ -101,7 +101,7 @@ export function createLibraryMock(params: URLSearchParams, library: Library): Li
       }
       library.groups = library.platforms.find((p) => p.id === "skool")?.groups ?? [];
       changeListeners.forEach((cb) => cb({ reason: "deleted", platform: g.platform, group: g.id, course: target.course }));
-      return { deleted: true, movedToTrash: !permanent, bytesFreed: bytes, bytesApprox: false };
+      return { deleted: true, movedToTrash: !permanent, bytesFreed: bytes, bytesApprox: false, groupRemoved: !c };
     },
     onLibraryChanged: async (cb) => {
       changeListeners.add(cb);

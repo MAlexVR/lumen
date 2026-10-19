@@ -35,7 +35,7 @@ export function t(key: MessageKey, vars?: Record<string, string | number>): stri
 }
 
 /** Count message with a singular form: `tn("lessons", 1)` uses `lessons_one`. */
-export function tn(base: "lessons" | "modules" | "courses" | "dl_errors" | "dl_warnings" | "del_lessons", n: number): string {
+export function tn(base: "lessons" | "videos" | "modules" | "courses" | "dl_errors" | "dl_warnings" | "del_lessons", n: number): string {
   return t(n === 1 ? `${base}_one` : `${base}_n`, { n });
 }
 

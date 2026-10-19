@@ -5,6 +5,8 @@
   import Icon from "../../lib/design/Icon.svelte";
   import { t } from "../../lib/i18n/index.svelte";
   import { courseStats } from "../../lib/logic/progress";
+  import { wording } from "../../lib/logic/videos";
+  import { app } from "../../lib/state/app.svelte";
   import { href } from "../../lib/state/router.svelte";
   import type { Course } from "../../lib/types";
 
@@ -18,6 +20,9 @@
   let { group, course, currentKey, watched, onpick }: Props = $props();
   let list: HTMLElement | undefined = $state();
   const stats = $derived(courseStats(course, watched));
+  const g = $derived(app.group(group));
+  const wd = $derived(wording(g?.platform ?? ""));
+  const loose = $derived(g?.collection === "standalone");
 
   $effect(() => {
     void currentKey;
@@ -32,9 +37,12 @@
 
 <div class="lessons" bind:this={list}>
   <header>
-    <span class="eyebrow">{t("lessons")}</span>
-    <a class="course" href={href({ name: "course", group, course: course.index })}>{displayTitle(course.title)}</a>
-    <span class="count num">{t("lessons_count", { done: stats.done, total: stats.total })} · {stats.pct}%</span>
+    <span class="eyebrow">{t(wd.title)}</span>
+    <a
+      class="course"
+      href={loose ? href({ name: "library", platform: "youtube" }) : href({ name: "course", group, course: course.index })}
+    >{loose ? t("videos_title") : displayTitle(course.title)}</a>
+    <span class="count num">{t(wd.countOf, { done: stats.done, total: stats.total })} · {stats.pct}%</span>
   </header>
   {#each course.sections as section (section.index)}
     <section aria-label={displayTitle(section.title)}>
