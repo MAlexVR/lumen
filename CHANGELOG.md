@@ -3,13 +3,18 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
-## [Unreleased]
+## [0.3.5] - 2026-10-19
 
 ### Added
-- Delete a single video from the library (any platform), moved to the trash by default.
+- Delete a single video from the library (any platform), moved to the trash by default. A playlist left without videos is removed too, so no empty card remains.
+- YouTube videos show their own thumbnail (the one downloaded with the video), without needing ffmpeg.
 
 ### Changed
-- YouTube videos and playlists are shown as videos, not courses: 16:9 video cards, playlist cards and a flat playlist page.
+- YouTube videos and playlists are shown as videos, not courses: each individual video is its own 16:9 card, playlists have their own cards and a flat numbered page, and the wording says "video" instead of "class", "course" or "module".
+- The search box on the YouTube tab says it searches videos and playlists.
+
+### Note
+- Update from 0.3.4 from *Ajustes → Actualizaciones* (*Instalar y reiniciar*): this is the first release that 0.3.4 can install by itself.
 
 ## [0.3.4] - 2026-10-19
 
