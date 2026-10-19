@@ -1,0 +1,1 @@
+{ "type": "drm-protection", "lambdaUrl": "https://lambda.example.test/drm", "token": "DRMTOKEN" }

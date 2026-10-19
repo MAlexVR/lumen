@@ -1,0 +1,37 @@
+{
+  "data": [
+    {
+      "purchaseDate": "2024-03-09T10:20:30Z",
+      "product": {
+        "id": 1001,
+        "name": "  METODO   HORIZONTE ",
+        "seller": { "name": "Marta Ledesma" },
+        "picture": "https://cdn.example.test/horizonte.jpg",
+        "hotmartClub": { "slug": "horizonte-club" }
+      }
+    },
+    {
+      "createdAt": 1709979630000,
+      "product": {
+        "id": "1002",
+        "name": "Yoga: y Flexibilidad?",
+        "seller": { "name": "Bruno Carrasco" }
+      }
+    },
+    {
+      "product": {
+        "id": 1003,
+        "name": "Own Slug Course",
+        "hotmartClub": { "slug": "own-slug" }
+      }
+    },
+    {
+      "product": { "id": 1004, "name": "No Club Ebook", "seller": { "name": "Someone" } }
+    },
+    {
+      "product": { "id": 1005, "name": "", "hotmartClub": { "slug": "blank-name" } }
+    },
+    { "nothing": 1 },
+    { "product": { "name": "No id", "hotmartClub": { "slug": "x" } } }
+  ]
+}

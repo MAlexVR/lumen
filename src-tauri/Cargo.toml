@@ -1,0 +1,37 @@
+[package]
+name = "lumen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Lumen: offline course classroom"
+
+[lints]
+workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde.workspace = true
+serde_json.workspace = true
+lumen-core.workspace = true
+lumen-media.workspace = true
+lumen-download.workspace = true
+lumen-skool.workspace = true
+lumen-hotmart.workspace = true
+lumen-youtube.workspace = true
+lumen-udemy.workspace = true
+lumen-pluralsight.workspace = true
+thiserror.workspace = true
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+trash = "5"
+tokio = { workspace = true, features = ["time"] }
+
+[dev-dependencies]
+lumen-download = { workspace = true, features = ["test-support"] }
+async-trait = "0.1"
+tempfile.workspace = true
+serde_json.workspace = true

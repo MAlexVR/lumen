@@ -1,0 +1,27 @@
+{
+  "count": 3,
+  "next": "https://www.udemy.com/api-2.0/users/me/subscribed-courses/?page=2&page_size=2",
+  "previous": null,
+  "results": [
+    {
+      "_class": "course",
+      "id": 1001,
+      "title": "Curso de Prueba Uno",
+      "image_480x270": "https://img-c.udemycdn.com/course/480x270/1001_aaaa.jpg",
+      "url": "/course/curso-de-prueba-uno/",
+      "num_published_lectures": 42,
+      "visible_instructors": [
+        {"_class": "user", "id": 777, "display_name": "Ana Ejemplo", "title": "Instructora"},
+        {"_class": "user", "id": 778, "title": "Sin nombre"}
+      ]
+    },
+    {
+      "_class": "course",
+      "id": "1002",
+      "title": "Segundo curso",
+      "image_480x270": null,
+      "num_published_lectures": "7",
+      "visible_instructors": []
+    }
+  ]
+}

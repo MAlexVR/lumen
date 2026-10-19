@@ -1,0 +1,9 @@
+{
+  "count": 3,
+  "next": null,
+  "previous": "https://www.udemy.com/api-2.0/users/me/subscribed-courses/?page=1&page_size=2",
+  "results": [
+    {"_class": "course", "title": "Sin id"},
+    {"_class": "course", "id": 1003}
+  ]
+}

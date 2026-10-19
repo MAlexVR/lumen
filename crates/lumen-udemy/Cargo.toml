@@ -1,0 +1,25 @@
+[package]
+name = "lumen-udemy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+lumen-core.workspace = true
+lumen-download.workspace = true
+regex = "1"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "charset"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs", "time"] }
+url = "2"
+
+[dev-dependencies]
+lumen-download = { workspace = true, features = ["test-support"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["fs", "time", "rt-multi-thread"] }

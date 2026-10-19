@@ -1,0 +1,13 @@
+{
+  "modules": [
+    {
+      "name": "¡Bienvenidos!",
+      "pages": [
+        { "hash": "h-welcome", "name": "Welcome video" },
+        { "hash": "h-guide", "name": "" }
+      ]
+    },
+    { "name": "", "pages": [ { "name": "Orphan without hash" } ] },
+    { "name": "Empty module", "pages": [] }
+  ]
+}

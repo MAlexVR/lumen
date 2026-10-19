@@ -1,0 +1,211 @@
+name: release
+
+# Installers are built only for tagged versions and only after the checks pass.
+# Windows minutes cost 2x on private repositories, so nothing here runs on push.
+# Publish a release with:  git tag v0.3.0 && git push origin v0.3.0
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tag matches the app version and has a changelog entry
+        run: |
+          version=$(grep -m1 '^version' Cargo.toml | cut -d '"' -f2)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match Cargo.toml version $version"; exit 1
+          fi
+          if [ -z "$(scripts/changelog-section.sh "$version")" ]; then
+            echo "CHANGELOG.md has no entry for $version"; exit 1
+          fi
+
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev \
+            libxdo-dev libssl-dev build-essential pkg-config
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.97.0
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Build and test the UI
+        working-directory: ui
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm test
+          pnpm check
+          pnpm build
+
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  build-linux:
+    needs: verify
+    runs-on: ubuntu-22.04
+    env:
+      APPIMAGE_EXTRACT_AND_RUN: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev \
+            libxdo-dev libssl-dev build-essential pkg-config
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.97.0
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+        working-directory: ui
+
+      # Linux packages rely on the system yt-dlp/ffmpeg (see the README).
+      - name: Build deb, rpm and AppImage
+        run: pnpm tauri build --bundles deb,rpm,appimage
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux
+          if-no-files-found: error
+          path: |
+            target/release/bundle/deb/*.deb
+            target/release/bundle/rpm/*.rpm
+            target/release/bundle/appimage/*.AppImage
+
+  build-windows:
+    needs: verify
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.97.0
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+        working-directory: ui
+
+      # The installer ships yt-dlp and ffmpeg next to the app (Tauri sidecars),
+      # so Windows users need nothing else. Both downloads are checksum-verified.
+      - name: Fetch yt-dlp and ffmpeg sidecars
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force src-tauri/binaries | Out-Null
+          $triple = 'x86_64-pc-windows-msvc'
+
+          $yt = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download'
+          Invoke-WebRequest "$yt/yt-dlp.exe" -OutFile "src-tauri/binaries/yt-dlp-$triple.exe"
+          Invoke-WebRequest "$yt/SHA2-256SUMS" -OutFile ytdlp-sums.txt
+          $want = ((Select-String -Path ytdlp-sums.txt -Pattern '\s\*?yt-dlp\.exe$').Line -split '\s+')[0]
+          $got = (Get-FileHash "src-tauri/binaries/yt-dlp-$triple.exe" -Algorithm SHA256).Hash
+          if ($want.ToLower() -ne $got.ToLower()) { throw 'yt-dlp checksum mismatch' }
+
+          $ff = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest'
+          $zip = 'ffmpeg-master-latest-win64-lgpl.zip'
+          Invoke-WebRequest "$ff/$zip" -OutFile $zip
+          Invoke-WebRequest "$ff/checksums.sha256" -OutFile ff-sums.txt
+          $want = ((Select-String -Path ff-sums.txt -Pattern ([regex]::Escape($zip) + '$')).Line -split '\s+')[0]
+          $got = (Get-FileHash $zip -Algorithm SHA256).Hash
+          if ($want.ToLower() -ne $got.ToLower()) { throw 'ffmpeg checksum mismatch' }
+          Expand-Archive $zip -DestinationPath ffmpeg-extract
+          $exe = Get-ChildItem ffmpeg-extract -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          Copy-Item $exe.FullName "src-tauri/binaries/ffmpeg-$triple.exe"
+
+      - name: Build the NSIS installer
+        run: pnpm tauri build --bundles nsis --config src-tauri/tauri.release.conf.json
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows
+          if-no-files-found: error
+          path: target/release/bundle/nsis/*.exe
+
+  publish:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      # Artifacts keep their folder layout (deb/, rpm/, appimage/): flatten them first.
+      - name: Flatten and checksum
+        run: |
+          mkdir release-files
+          find dist -type f -exec cp {} release-files/ \;
+          cd release-files && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Publish the release
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          {
+            scripts/changelog-section.sh "$version"
+            echo
+            echo "---"
+            echo "- **Windows 11:** per-user installer (no administrator needed), includes yt-dlp and ffmpeg."
+            echo "  It is **not code-signed**, so SmartScreen shows a warning (\"More info\" > \"Run anyway\")."
+            echo "  The Windows build has not been tested on a real machine yet."
+            echo "- **Linux:** \`.rpm\` (Fedora), \`.deb\` (Debian/Ubuntu) and \`.AppImage\`; they use the system \`yt-dlp\` (and \`ffmpeg\`, recommended)."
+            echo "- Verify downloads with \`SHA256SUMS.txt\`. Third-party components: \`THIRD_PARTY.md\`."
+          } > notes.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release-files/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" release-files/* --title "Lumen $version" \
+              --notes-file notes.md --prerelease
+          fi

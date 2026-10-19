@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = ["crates/lumen-core", "crates/lumen-media", "crates/lumen-download", "crates/lumen-skool", "crates/lumen-hotmart", "crates/lumen-youtube", "crates/lumen-udemy", "crates/lumen-pluralsight", "src-tauri"]
+
+[workspace.package]
+version = "0.3.3"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/MAlexVR/lumen"
+rust-version = "1.97"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "warn"
+
+[workspace.dependencies]
+lumen-core = { path = "crates/lumen-core" }
+lumen-media = { path = "crates/lumen-media" }
+lumen-download = { path = "crates/lumen-download" }
+lumen-skool = { path = "crates/lumen-skool" }
+lumen-hotmart = { path = "crates/lumen-hotmart" }
+lumen-youtube = { path = "crates/lumen-youtube" }
+lumen-udemy = { path = "crates/lumen-udemy" }
+lumen-pluralsight = { path = "crates/lumen-pluralsight" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tempfile = "3"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "macros"] }

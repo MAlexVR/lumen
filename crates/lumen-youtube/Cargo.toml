@@ -1,0 +1,22 @@
+[package]
+name = "lumen-youtube"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = "0.1"
+lumen-core.workspace = true
+lumen-download.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs", "time"] }
+url = "2"
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["fs", "time", "rt-multi-thread"] }

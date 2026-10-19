@@ -1,0 +1,13 @@
+{
+  "modules": [
+    {
+      "title": "Getting Started",
+      "contentItems": [
+        { "id": "clip-1", "version": "v1", "title": "Overview" },
+        { "id": "clip-2", "version": "v2", "title": " \n " },
+        { "id": "clip-3", "title": "Unversioned" }
+      ]
+    },
+    { "contentItems": ["malformed clip"] }
+  ]
+}

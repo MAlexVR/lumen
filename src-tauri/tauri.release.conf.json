@@ -1,0 +1,12 @@
+{
+  "bundle": {
+    "externalBin": ["binaries/yt-dlp", "binaries/ffmpeg"],
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper" },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Spanish", "English"]
+      }
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "count": 8,
+  "next": "https://www.udemy.com/api-2.0/courses/1001/subscriber-curriculum-items/?page=2&page_size=200",
+  "results": [
+    {"_class": "chapter", "id": 1, "title": "Introducción", "object_index": 1},
+    {
+      "_class": "lecture", "id": 11, "title": "Bienvenida", "object_index": 1,
+      "is_published": true, "sort_order": 1, "description": "<p>Hola</p>",
+      "asset": {
+        "_class": "asset", "id": 9001, "asset_type": "Video", "title": "Bienvenida",
+        "filename": "intro.mp4", "status": "Finished", "time_estimation": 120,
+        "is_external": false, "course_is_drmed": false,
+        "stream_urls": {"Video": [
+          {"type": "video/mp4", "label": "720", "file": "https://mp4.udemycdn.com/a/720.mp4?token=FAKE"},
+          {"type": "video/mp4", "label": "360", "file": "https://mp4.udemycdn.com/a/360.mp4?token=FAKE"}
+        ]},
+        "download_urls": null,
+        "captions": [{"locale_id": "es_ES", "url": "https://cc.udemycdn.com/a.vtt?sig=1"}],
+        "media_sources": [{"type": "video/mp4", "src": "https://mp4.udemycdn.com/a/720.mp4?token=FAKE"}]
+      },
+      "supplementary_assets": [
+        {"_class": "asset", "id": 9002, "asset_type": "File", "title": "Guía", "filename": "guia.pdf",
+         "download_urls": {"File": [{"label": "download", "file": "https://f.udemycdn.com/guia.pdf?sig=2"}]}}
+      ]
+    },
+    {
+      "_class": "lecture", "id": 12, "title": "Lectura", "object_index": 2, "is_published": true,
+      "asset": {"_class": "asset", "id": 9003, "asset_type": "Article", "title": "Lectura", "body": "<p>Texto de la lectura</p>"},
+      "supplementary_assets": []
+    },
+    {"_class": "chapter", "id": 2, "title": "Avanzado", "object_index": 2},
+    {
+      "_class": "lecture", "id": 21, "title": "Protegida", "object_index": 1, "is_published": true,
+      "asset": {
+        "_class": "asset", "id": 9004, "asset_type": "Video", "title": "Protegida",
+        "course_is_drmed": true, "media_license_token": "FAKELICENSETOKEN0123456789abcdef",
+        "media_sources": [{"type": "application/dash+xml", "src": "https://x.udemycdn.com/m.mpd"}]
+      }
+    },
+    {
+      "_class": "lecture", "id": 22, "title": "Enlace", "object_index": 2, "is_published": true,
+      "asset": {"_class": "asset", "id": 9005, "asset_type": "ExternalLink", "is_external": true, "external_url": "https://example.com/recurso"}
+    },
+    {"_class": "quiz", "id": 31, "title": "Examen", "object_index": 3, "type": "simple-quiz"}
+  ]
+}

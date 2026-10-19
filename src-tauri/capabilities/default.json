@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability for the main window. Local files are opened through the confined open_library_path command, so the opener plugin only needs URL access for resource links.",
+  "windows": ["main"],
+  "permissions": ["core:default", "opener:allow-open-url", "opener:allow-default-urls"]
+}

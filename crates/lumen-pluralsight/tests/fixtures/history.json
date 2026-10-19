@@ -1,0 +1,21 @@
+{
+  "collection": [
+    {
+      "content": {
+        "courseId": "course-1",
+        "title": "  Rust   Essentials  ",
+        "level": "Intermediate",
+        "image": { "url": "https://images.example.test/rust.jpg" }
+      }
+    },
+    {
+      "content": {
+        "id": "course-2",
+        "title": " \t ",
+        "level": "Beginner",
+        "image": { "url": "javascript:ignored" }
+      }
+    },
+    { "unexpected": true }
+  ]
+}

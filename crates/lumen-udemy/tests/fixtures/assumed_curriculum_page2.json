@@ -1,0 +1,9 @@
+{
+  "count": 8,
+  "next": null,
+  "results": [
+    {"_class": "practice", "id": 41, "title": "Práctica", "object_index": 4},
+    {"_class": "lecture", "id": 23, "title": "Sin asset", "object_index": 5, "is_published": true, "asset": null},
+    {"_class": "mystery-item", "id": 51, "title": "Algo nuevo"}
+  ]
+}

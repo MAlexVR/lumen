@@ -1,0 +1,28 @@
+[package]
+name = "lumen-download"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Platform-agnostic download building blocks: yt-dlp runner, retrying HTTP, report writer, folder layout"
+
+[lints]
+workspace = true
+
+[features]
+# Exposes the loopback test server to other crates' tests.
+test-support = ["dep:axum"]
+
+[dependencies]
+async-trait = "0.1"
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio"], optional = true }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+lumen-core.workspace = true
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "charset"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs", "io-util", "process", "time"] }
+
+[dev-dependencies]
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["fs", "io-util", "process", "time", "rt-multi-thread"] }

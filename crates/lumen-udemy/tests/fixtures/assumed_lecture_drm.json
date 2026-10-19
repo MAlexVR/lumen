@@ -1,0 +1,8 @@
+{
+  "_class": "lecture", "id": 21,
+  "asset": {
+    "_class": "asset", "id": 9004, "asset_type": "Video", "course_is_drmed": true,
+    "media_license_token": "FAKELICENSETOKEN0123456789abcdef",
+    "media_sources": [{"type": "application/dash+xml", "src": "https://x.udemycdn.com/m.mpd"}]
+  }
+}

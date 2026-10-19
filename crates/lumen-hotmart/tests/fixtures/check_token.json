@@ -1,0 +1,9 @@
+{
+  "user_name": "student@example.test",
+  "resources": [
+    { "resource": { "productId": 1001, "subdomain": "horizonte-club", "role": "STUDENT" } },
+    { "resource": { "productId": "1002", "subdomain": "flexibilidad", "role": "STUDENT" } },
+    { "resource": { "productId": 1004, "subdomain": "", "role": "STUDENT" } },
+    { "noResource": true }
+  ]
+}

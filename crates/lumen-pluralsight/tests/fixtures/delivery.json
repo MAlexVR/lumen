@@ -1,0 +1,14 @@
+{
+  "renditions": [
+    {
+      "format": "m3u8",
+      "languageCode": "pt-BR",
+      "urls": [{ "url": "https://media.example.test/pt.m3u8?signature=synthetic" }]
+    },
+    {
+      "format": "m3u8",
+      "languageCode": "en-US",
+      "urls": [{ "url": "https://media.example.test/en.m3u8?signature=synthetic" }]
+    }
+  ]
+}

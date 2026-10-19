@@ -1,0 +1,18 @@
+{
+  "attachments": [
+    { "fileMembershipId": "att-1", "fileName": "Plan: 2021 (4).pdf" },
+    { "fileMembershipId": "", "fileName": "no-id.pdf" },
+    { "fileName": "missing-id.pdf" }
+  ],
+  "hasPlayerMedia": true,
+  "mediasSrc": [
+    { "mediaType": "VIDEO", "mediaSrcUrl": "https://cf-embed.play.hotmart.com/embed/abc", "mediaName": "Intro" },
+    { "mediaType": "AUDIO", "mediaSrcUrl": "https://cf-embed.play.hotmart.com/embed/aud", "mediaName": "Podcast: ep 1.mp3" },
+    { "mediaType": "IMAGE", "mediaSrcUrl": "https://x.test/i", "mediaName": "pic" }
+  ],
+  "content": "<p>Hello</p><iframe src=\"https://player.vimeo.com/video/123?h=abc&amp;badge=0\" width=\"640\"></iframe>",
+  "complementaryReadings": [
+    { "articleUrl": "https://read.test/a?x=1&y=2", "articleName": "Read <me> & more" },
+    { "articleUrl": "https://read.test/b", "articleName": "Second" }
+  ]
+}

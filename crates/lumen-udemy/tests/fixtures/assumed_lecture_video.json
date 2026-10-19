@@ -1,0 +1,10 @@
+{
+  "_class": "lecture", "id": 11, "description": "<p>Hola</p>", "download_url": null,
+  "asset": {
+    "_class": "asset", "id": 9001, "asset_type": "Video", "title": "Bienvenida", "filename": "intro.mp4",
+    "course_is_drmed": false,
+    "stream_urls": {"Video": [{"type": "video/mp4", "label": "720", "file": "https://mp4.udemycdn.com/a/720.mp4?token=FAKE"}]},
+    "captions": [{"locale_id": "es_ES", "url": "https://cc.udemycdn.com/a.vtt?sig=1"}],
+    "media_sources": [{"type": "application/x-mpegURL", "src": "https://hls.udemycdn.com/a/index.m3u8?token=FAKE"}]
+  }
+}
