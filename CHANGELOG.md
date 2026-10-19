@@ -3,6 +3,20 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.3.4] - 2026-10-19
+
+### Added
+- In-app updates: *Ajustes → Actualizaciones* downloads the new version, verifies its SHA-256 and its signature, installs it and restarts Lumen, replacing the installed version.
+  It detects how Lumen is installed and updates that install in place: rpm (`dnf`) and deb (`apt`) packages through the system administrator prompt, AppImage by replacing the file, and the Windows installer in passive mode.
+  Copies installed by hand are not modified: the verified file is downloaded and the screen shows where it is.
+- Release installers are signed (a `.sig` is published next to each file) and the app only installs a version whose signature matches the public key built into it.
+
+### Changed
+- The updates screen shows how the app is installed and what the update will do before asking for confirmation.
+
+### Note
+- The first self-updating version is 0.3.4; install it once by hand (`sudo dnf install ./Lumen-0.3.4-1.x86_64.rpm`). Automatic updates start with the following release.
+
 ## [0.3.3] - 2026-10-18
 
 ### Changed
