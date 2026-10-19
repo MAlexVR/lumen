@@ -68,7 +68,7 @@
     <label class="search">
       <span class="visually-hidden">{t("search_label")}</span>
       <Icon name="search" size={18} />
-      <input type="search" bind:value={query} placeholder={t("search_placeholder")} autocomplete="off" spellcheck="false" />
+      <input type="search" bind:value={query} placeholder={t(active === "youtube" ? "search_placeholder_videos" : "search_placeholder")} autocomplete="off" spellcheck="false" />
     </label>
   </header>
 

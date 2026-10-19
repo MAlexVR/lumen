@@ -36,6 +36,7 @@ export const es = {
   module_n: "Módulo {n}",
   search_label: "Buscar",
   search_placeholder: "Buscar cursos y clases",
+  search_placeholder_videos: "Buscar videos y listas",
   no_results: "Nada coincide con «{q}».",
   group_switch: "Grupos",
   status_partial: "Descarga parcial",

@@ -38,6 +38,7 @@ export const en: Record<MessageKey, string> = {
   module_n: "Module {n}",
   search_label: "Search",
   search_placeholder: "Search courses and lessons",
+  search_placeholder_videos: "Search videos and playlists",
   no_results: "Nothing matches “{q}”.",
   group_switch: "Groups",
   status_partial: "Partial download",
