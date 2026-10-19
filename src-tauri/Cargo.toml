@@ -27,11 +27,13 @@ lumen-udemy.workspace = true
 lumen-pluralsight.workspace = true
 thiserror.workspace = true
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+async-trait = "0.1"
+url = "2"
 trash = "5"
 minisign-verify = "0.2"
 base64 = "0.22"
 sha2 = "0.10"
-tokio = { workspace = true, features = ["time"] }
+tokio = { workspace = true, features = ["time", "process"] }
 
 [dev-dependencies]
 lumen-download = { workspace = true, features = ["test-support"] }

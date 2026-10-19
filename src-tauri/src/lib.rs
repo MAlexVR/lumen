@@ -10,6 +10,7 @@ mod state;
 mod thumbs;
 mod udemy;
 mod update;
+mod update_install;
 mod update_verify;
 mod youtube;
 
@@ -45,7 +46,10 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 use thumbs::{CancelRequest, ThumbInfo, Thumbnails, ThumbsRequest, ThumbsStatus};
 use udemy::{DiagnoseOutcome, LoginOutcome as UdemyLoginOutcome, UdemyService};
-use update::{OsInfo, TokenStatus, UpdateInfo, UpdateService, UpdateSettings};
+use update::{TokenStatus, UpdateFailure, UpdateInfo, UpdateService, UpdateSettings};
+use update_install::{
+    clean_stale, detect_kind, InstallOutcome, KindEnv, Os, ProcessSystem, SystemProbe, UpdateEnv,
+};
 use youtube::YoutubeService;
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -811,6 +815,20 @@ async fn update_check(update: State<'_, Arc<UpdateService>>) -> Result<UpdateInf
     update.check().await
 }
 
+/// Downloads, verifies, installs and restarts into the newest release. Progress
+/// arrives as `update://progress`; a successful run ends the app.
+#[tauri::command]
+async fn update_install(
+    update: State<'_, Arc<UpdateService>>,
+) -> Result<InstallOutcome, UpdateFailure> {
+    update.install().await
+}
+
+#[tauri::command]
+fn update_cancel(update: State<'_, Arc<UpdateService>>) -> bool {
+    update.cancel()
+}
+
 #[tauri::command]
 fn update_settings(update: State<'_, Arc<UpdateService>>) -> Result<UpdateSettings, DownloadError> {
     update.settings()
@@ -873,11 +891,31 @@ pub fn run() {
                 sidecar_dir().as_deref(),
                 std::env::var_os("PATH").as_deref(),
             );
+            let updates_dir = app.path().app_cache_dir()?.join("updates");
+            clean_stale(&updates_dir);
+            let exe = std::env::current_exe().unwrap_or_default();
+            let appimage = std::env::var_os("APPIMAGE").map(PathBuf::from);
+            let kind = detect_kind(&KindEnv {
+                os: Os::current(),
+                exe: &exe,
+                appimage: appimage.as_deref(),
+                probe: &SystemProbe,
+            });
+            let (exit_handle, emit_handle) = (app.handle().clone(), app.handle().clone());
             app.manage(Arc::new(UpdateService::new(
                 Arc::clone(&core),
                 data_dir.clone(),
                 env!("CARGO_PKG_VERSION"),
-                OsInfo::detect(),
+                UpdateEnv {
+                    kind,
+                    arch: std::env::consts::ARCH.to_string(),
+                    appimage,
+                    updates_dir,
+                    system: Arc::new(ProcessSystem::new(Arc::new(move || exit_handle.exit(0)))),
+                    emit: Arc::new(move |event, payload| {
+                        let _ = emit_handle.emit(event, payload);
+                    }),
+                },
             )));
             let cache_dir = app.path().app_cache_dir()?.join("thumbs");
             let handle = app.handle().clone();
@@ -966,6 +1004,8 @@ pub fn run() {
             thumbnails_cancel,
             thumbnails_status,
             update_check,
+            update_install,
+            update_cancel,
             update_settings,
             update_set_include_prereleases,
             update_token_status,

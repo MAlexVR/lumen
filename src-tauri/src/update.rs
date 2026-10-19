@@ -20,6 +20,8 @@ use serde_json::Value;
 use crate::downloads::{CommandError, ErrorCode};
 use crate::session::SessionStore;
 use crate::state::AppCore;
+use crate::update_install::{expected_asset, DownloadPolicy, InstallKind, UpdateEnv};
+use crate::update_verify::UPDATE_PUBKEY;
 
 pub const UPDATE_REPO: &str = "MAlexVR/lumen";
 const API_BASE: &str = "https://api.github.com";
@@ -155,6 +157,9 @@ pub struct Asset {
     pub size: u64,
     #[serde(default, rename = "browser_download_url")]
     pub download_url: String,
+    /// API URL of the asset: the only way to download from a private repository.
+    #[serde(default)]
+    pub url: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -201,76 +206,6 @@ pub enum AssetKind {
     AppImage,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Family {
-    Windows,
-    Linux,
-    Other,
-}
-
-/// What the recommended installer is chosen from (injected for tests).
-#[derive(Debug, Clone)]
-pub struct OsInfo {
-    pub family: Family,
-    /// `ID` of `/etc/os-release` (lowercase), empty elsewhere.
-    pub id: String,
-    pub id_like: String,
-    /// `std::env::consts::ARCH` style: `x86_64`, `aarch64`.
-    pub arch: String,
-}
-
-impl OsInfo {
-    pub fn from_os_release(text: &str, arch: &str) -> Self {
-        let field = |key: &str| {
-            text.lines()
-                .filter_map(|l| l.split_once('='))
-                .find(|(k, _)| k.trim() == key)
-                .map(|(_, v)| v.trim().trim_matches(['"', '\'']).to_lowercase())
-                .unwrap_or_default()
-        };
-        Self {
-            family: Family::Linux,
-            id: field("ID"),
-            id_like: field("ID_LIKE"),
-            arch: arch.to_string(),
-        }
-    }
-
-    pub fn detect() -> Self {
-        let arch = std::env::consts::ARCH;
-        if cfg!(windows) {
-            Self {
-                family: Family::Windows,
-                id: String::new(),
-                id_like: String::new(),
-                arch: arch.into(),
-            }
-        } else if cfg!(target_os = "linux") {
-            let text = std::fs::read_to_string("/etc/os-release").unwrap_or_default();
-            Self::from_os_release(&text, arch)
-        } else {
-            Self {
-                family: Family::Other,
-                id: String::new(),
-                id_like: String::new(),
-                arch: arch.into(),
-            }
-        }
-    }
-
-    fn linux_kind(&self) -> AssetKind {
-        let families = format!("{} {}", self.id, self.id_like);
-        let has = |names: &[&str]| names.iter().any(|n| families.contains(n));
-        if has(&["fedora", "rhel", "centos", "suse"]) {
-            AssetKind::Rpm
-        } else if has(&["debian", "ubuntu"]) {
-            AssetKind::Deb
-        } else {
-            AssetKind::AppImage
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetInfo {
@@ -280,59 +215,54 @@ pub struct AssetInfo {
     pub kind: AssetKind,
 }
 
-const ARCHES: [(&str, &[&str]); 2] = [
-    ("x86_64", &["x86_64", "amd64", "x64"]),
-    ("aarch64", &["aarch64", "arm64"]),
-];
+/// The installer for how the running app is installed: the asset with the
+/// exact expected name, or `None` (unmanaged installs and missing files).
+pub fn pick_asset(
+    assets: &[Asset],
+    version: &Version,
+    kind: InstallKind,
+    arch: &str,
+) -> Option<AssetInfo> {
+    let name = expected_asset(kind, version, arch)?;
+    let asset = assets.iter().find(|a| a.name == name)?;
+    Some(AssetInfo {
+        name,
+        size: asset.size,
+        download_url: asset.download_url.clone(),
+        kind: match kind {
+            InstallKind::WindowsNsis => AssetKind::WindowsInstaller,
+            InstallKind::Rpm => AssetKind::Rpm,
+            InstallKind::Deb => AssetKind::Deb,
+            InstallKind::Appimage | InstallKind::Unmanaged => AssetKind::AppImage,
+        },
+    })
+}
 
-/// 0 = built for this CPU, 1 = names no CPU, 2 = built for another CPU.
-fn arch_rank(name: &str, arch: &str) -> u8 {
-    let lower = name.to_lowercase();
-    let mine = ARCHES
-        .iter()
-        .find(|(a, _)| *a == arch)
-        .map_or(&[][..], |(_, al)| al);
-    if mine.iter().any(|a| lower.contains(a)) {
-        0
-    } else if ARCHES
-        .iter()
-        .flat_map(|(_, al)| *al)
-        .any(|a| lower.contains(a))
-    {
-        2
-    } else {
-        1
+/// Error of an update step: `{code, message}` plus the `path` of a verified
+/// file the user has to install by hand (`manual_install_required`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, thiserror::Error)]
+#[error("{message}")]
+pub struct UpdateFailure {
+    pub code: ErrorCode,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+}
+
+impl UpdateFailure {
+    pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+            path: None,
+        }
     }
 }
 
-/// The installer for this system, or `None` when the release has none.
-pub fn pick_asset(assets: &[Asset], os: &OsInfo) -> Option<AssetInfo> {
-    let kind = match os.family {
-        Family::Windows => AssetKind::WindowsInstaller,
-        Family::Linux => os.linux_kind(),
-        Family::Other => return None,
-    };
-    let matches = |name: &str| {
-        let lower = name.to_lowercase();
-        match kind {
-            AssetKind::WindowsInstaller => lower.ends_with("-setup.exe"),
-            AssetKind::Rpm => lower.ends_with(".rpm"),
-            AssetKind::Deb => lower.ends_with(".deb"),
-            AssetKind::AppImage => lower.ends_with(".appimage"),
-        }
-    };
-    assets
-        .iter()
-        .filter(|a| matches(&a.name))
-        .map(|a| (arch_rank(&a.name, &os.arch), a))
-        .filter(|(rank, _)| *rank < 2)
-        .min_by_key(|(rank, _)| *rank)
-        .map(|(_, a)| AssetInfo {
-            name: a.name.clone(),
-            size: a.size,
-            download_url: a.download_url.clone(),
-            kind,
-        })
+impl From<CommandError> for UpdateFailure {
+    fn from(e: CommandError) -> Self {
+        Self::new(e.code, e.message)
+    }
 }
 
 // ---- service ----
@@ -350,6 +280,12 @@ pub struct UpdateInfo {
     pub notes: String,
     pub html_url: Option<String>,
     pub asset: Option<AssetInfo>,
+    /// How the running app is installed (decides the installer).
+    pub install_kind: InstallKind,
+    /// True when the update cannot be installed in place (`unmanaged`).
+    pub manual_install_required: bool,
+    /// Whether the release publishes a signature for the recommended asset.
+    pub signed: bool,
     pub checked_at: String,
 }
 
@@ -365,12 +301,19 @@ pub struct TokenStatus {
 }
 
 pub struct UpdateService {
-    core: Arc<AppCore>,
+    pub(crate) core: Arc<AppCore>,
     tokens: SessionStore,
-    current: String,
-    os: OsInfo,
-    base: String,
+    pub(crate) current: String,
+    pub(crate) env: UpdateEnv,
+    pub(crate) base: String,
     timeout: Duration,
+    /// Which hosts downloads may come from.
+    pub(crate) policy: DownloadPolicy,
+    /// Base64 minisign public key the update signatures must verify against.
+    pub(crate) pubkey: String,
+    /// Minimum time between two progress events.
+    pub(crate) progress_interval: Duration,
+    pub(crate) running: std::sync::Mutex<Option<lumen_core::CancelFlag>>,
 }
 
 impl fmt::Debug for UpdateService {
@@ -382,8 +325,37 @@ impl fmt::Debug for UpdateService {
     }
 }
 
-fn err(code: ErrorCode, message: impl Into<String>) -> CommandError {
+pub(crate) fn err(code: ErrorCode, message: impl Into<String>) -> CommandError {
     CommandError::new(code, message)
+}
+
+/// What a non-200 answer from GitHub means (shared by the release listing and
+/// the asset downloads).
+pub(crate) fn status_error(
+    status: u16,
+    headers: &reqwest::header::HeaderMap,
+    has_token: bool,
+) -> CommandError {
+    let header = |name: &str| headers.get(name).and_then(|v| v.to_str().ok());
+    let exhausted = header("x-ratelimit-remaining") == Some("0");
+    match status {
+        429 | 403 if status == 429 || exhausted => {
+            let reset = header("x-ratelimit-reset")
+                .and_then(|r| r.parse::<u64>().ok())
+                .map(|r| format!(" Try again after {}.", iso8601_utc(r)))
+                .unwrap_or_default();
+            err(
+                ErrorCode::RateLimited,
+                format!("GitHub's rate limit was reached.{reset}"),
+            )
+        }
+        401 | 403 | 404 => UpdateService::unauthorized(has_token),
+        500.. => err(ErrorCode::Network, format!("GitHub answered HTTP {status}")),
+        _ => err(
+            ErrorCode::InvalidResponse,
+            format!("GitHub answered HTTP {status}"),
+        ),
+    }
 }
 
 /// Cuts `text` to `max` bytes on a character boundary, marking the cut.
@@ -399,14 +371,18 @@ fn cap_notes(text: &str, max: usize) -> String {
 }
 
 impl UpdateService {
-    pub fn new(core: Arc<AppCore>, data_dir: PathBuf, current: &str, os: OsInfo) -> Self {
+    pub fn new(core: Arc<AppCore>, data_dir: PathBuf, current: &str, env: UpdateEnv) -> Self {
         Self {
             core,
             tokens: SessionStore::new(data_dir.join(TOKEN_FILE)),
             current: current.to_string(),
-            os,
+            env,
             base: API_BASE.to_string(),
             timeout: TIMEOUT,
+            policy: DownloadPolicy::github(),
+            pubkey: UPDATE_PUBKEY.to_string(),
+            progress_interval: Duration::from_millis(250),
+            running: std::sync::Mutex::new(None),
         }
     }
 
@@ -442,7 +418,7 @@ impl UpdateService {
         })
     }
 
-    fn load_token(&self) -> Result<Option<String>, CommandError> {
+    pub(crate) fn load_token(&self) -> Result<Option<String>, CommandError> {
         self.tokens.load().map_err(|e| {
             err(
                 ErrorCode::Internal,
@@ -477,7 +453,7 @@ impl UpdateService {
             .map_err(|e| err(ErrorCode::Internal, format!("cannot remove the token: {e}")))
     }
 
-    fn unauthorized(has_token: bool) -> CommandError {
+    pub(crate) fn unauthorized(has_token: bool) -> CommandError {
         err(
             ErrorCode::UpdateUnauthorized,
             if has_token {
@@ -488,7 +464,10 @@ impl UpdateService {
         )
     }
 
-    async fn fetch_listing(&self, token: Option<&str>) -> Result<Vec<Release>, CommandError> {
+    pub(crate) async fn fetch_listing(
+        &self,
+        token: Option<&str>,
+    ) -> Result<Vec<Release>, CommandError> {
         let url = format!(
             "{}/repos/{UPDATE_REPO}/releases?per_page={RELEASES_PER_PAGE}",
             self.base
@@ -518,31 +497,7 @@ impl UpdateService {
         })?;
         let status = resp.status().as_u16();
         if status != 200 {
-            let header = |name: &str| {
-                resp.headers()
-                    .get(name)
-                    .and_then(|v| v.to_str().ok())
-                    .map(str::to_string)
-            };
-            let exhausted = header("x-ratelimit-remaining").as_deref() == Some("0");
-            return Err(match status {
-                429 | 403 if status == 429 || exhausted => {
-                    let reset = header("x-ratelimit-reset")
-                        .and_then(|r| r.parse::<u64>().ok())
-                        .map(|r| format!(" Try again after {}.", iso8601_utc(r)))
-                        .unwrap_or_default();
-                    err(
-                        ErrorCode::RateLimited,
-                        format!("GitHub's rate limit was reached.{reset}"),
-                    )
-                }
-                401 | 403 | 404 => Self::unauthorized(token.is_some()),
-                500.. => err(ErrorCode::Network, format!("GitHub answered HTTP {status}")),
-                _ => err(
-                    ErrorCode::InvalidResponse,
-                    format!("GitHub answered HTTP {status}"),
-                ),
-            });
+            return Err(status_error(status, resp.headers(), token.is_some()));
         }
         let text = resp.text().await.map_err(|e| {
             err(
@@ -592,6 +547,7 @@ impl UpdateService {
                 "the release tag is not a version",
             )
         })?;
+        let assets = release.assets.as_deref().unwrap_or_default();
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |d| d.as_secs());
@@ -608,7 +564,11 @@ impl UpdateService {
             published_at: release.published_at.clone(),
             notes: cap_notes(release.body.as_deref().unwrap_or_default(), MAX_NOTES_BYTES),
             html_url: release.html_url.clone(),
-            asset: pick_asset(release.assets.as_deref().unwrap_or_default(), &self.os),
+            asset: pick_asset(assets, &latest, self.env.kind, &self.env.arch),
+            install_kind: self.env.kind,
+            manual_install_required: self.env.kind == InstallKind::Unmanaged,
+            signed: expected_asset(self.env.kind, &latest, &self.env.arch)
+                .is_some_and(|n| assets.iter().any(|a| a.name == format!("{n}.sig"))),
             checked_at: iso8601_utc(now),
         })
     }
@@ -617,6 +577,7 @@ impl UpdateService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::update_install::{InstallKind, UpdateEnv};
     use lumen_download::testsrv::{Recorded, Reply, TestServer};
     use serde_json::{json, Value};
     use std::time::Duration;
@@ -714,121 +675,8 @@ mod tests {
         );
     }
 
-    fn asset(name: &str) -> Asset {
-        serde_json::from_value(json!({"name": name, "size": 10, "browser_download_url": format!("https://dl.test/{name}")})).unwrap()
-    }
-
-    fn assets() -> Vec<Asset> {
-        [
-            "Lumen_0.4.0_x64-setup.exe",
-            "Lumen-0.4.0-1.x86_64.rpm",
-            "Lumen-0.4.0-1.aarch64.rpm",
-            "lumen_0.4.0_amd64.deb",
-            "Lumen_0.4.0_amd64.AppImage",
-            "notes.txt",
-        ]
-        .iter()
-        .map(|n| asset(n))
-        .collect()
-    }
-
-    fn os(family: Family, id: &str, like: &str) -> OsInfo {
-        OsInfo {
-            family,
-            id: id.into(),
-            id_like: like.into(),
-            arch: "x86_64".into(),
-        }
-    }
-
-    #[test]
-    fn the_recommended_asset_depends_on_the_system() {
-        let pick = |o: &OsInfo, a: &[Asset]| pick_asset(a, o).map(|x| (x.kind, x.name));
-        assert_eq!(
-            pick(&os(Family::Windows, "", ""), &assets()),
-            Some((
-                AssetKind::WindowsInstaller,
-                "Lumen_0.4.0_x64-setup.exe".into()
-            ))
-        );
-        assert_eq!(
-            pick(&os(Family::Linux, "fedora", ""), &assets()),
-            Some((AssetKind::Rpm, "Lumen-0.4.0-1.x86_64.rpm".into()))
-        );
-        assert_eq!(
-            pick(&os(Family::Linux, "nobara", "fedora"), &assets())
-                .unwrap()
-                .0,
-            AssetKind::Rpm
-        );
-        assert_eq!(
-            pick(
-                &os(Family::Linux, "opensuse-tumbleweed", "opensuse suse"),
-                &assets()
-            )
-            .unwrap()
-            .0,
-            AssetKind::Rpm
-        );
-        assert_eq!(
-            pick(&os(Family::Linux, "rocky", "rhel centos fedora"), &assets())
-                .unwrap()
-                .0,
-            AssetKind::Rpm
-        );
-        assert_eq!(
-            pick(&os(Family::Linux, "ubuntu", "debian"), &assets()),
-            Some((AssetKind::Deb, "lumen_0.4.0_amd64.deb".into()))
-        );
-        assert_eq!(
-            pick(&os(Family::Linux, "linuxmint", "ubuntu debian"), &assets())
-                .unwrap()
-                .0,
-            AssetKind::Deb
-        );
-        assert_eq!(
-            pick(&os(Family::Linux, "arch", ""), &assets()),
-            Some((AssetKind::AppImage, "Lumen_0.4.0_amd64.AppImage".into()))
-        );
-        assert_eq!(
-            pick(&os(Family::Linux, "", ""), &assets()).unwrap().0,
-            AssetKind::AppImage
-        );
-        assert_eq!(pick(&os(Family::Other, "macos", ""), &assets()), None);
-        let no_rpm: Vec<Asset> = assets()
-            .into_iter()
-            .filter(|a| !a.name.ends_with(".rpm"))
-            .collect();
-        assert_eq!(
-            pick(&os(Family::Linux, "fedora", ""), &no_rpm),
-            None,
-            "no fallback to another kind"
-        );
-        assert_eq!(pick(&os(Family::Windows, "", ""), &[]), None);
-        let upper = vec![asset("LUMEN-SETUP.EXE")];
-        assert_eq!(
-            pick(&os(Family::Windows, "", ""), &upper).unwrap().0,
-            AssetKind::WindowsInstaller
-        );
-        let mut arm = os(Family::Linux, "fedora", "");
-        arm.arch = "aarch64".into();
-        assert_eq!(
-            pick(&arm, &assets()).unwrap().1,
-            "Lumen-0.4.0-1.aarch64.rpm"
-        );
-    }
-
-    #[test]
-    fn os_release_is_parsed_with_quotes_and_comments() {
-        let o = OsInfo::from_os_release(
-            "# c\nNAME=\"Nobara Linux\"\nID=nobara\nID_LIKE=\"rhel centos fedora\"\n\nBAD LINE\n",
-            "x86_64",
-        );
-        assert_eq!(
-            (o.family, o.id.as_str(), o.id_like.as_str()),
-            (Family::Linux, "nobara", "rhel centos fedora")
-        );
-        assert_eq!(OsInfo::from_os_release("", "x86_64").id, "");
+    fn os(kind: InstallKind) -> UpdateEnv {
+        UpdateEnv::for_tests(kind)
     }
 
     // ---- service ----
@@ -842,9 +690,18 @@ mod tests {
     }
 
     fn release_json(tag: &str, pre: bool, body: &str) -> Value {
+        let v = tag.trim_start_matches('v');
+        let names = [
+            format!("Lumen_{v}_x64-setup.exe"),
+            format!("Lumen-{v}-1.x86_64.rpm"),
+            format!("Lumen-{v}-1.x86_64.rpm.sig"),
+            format!("Lumen_{v}_amd64.deb"),
+            format!("Lumen_{v}_amd64.AppImage"),
+            "notes.txt".to_string(),
+        ];
         json!({"tag_name": tag, "name": format!("Lumen {tag}"), "draft": false, "prerelease": pre,
                "published_at": "2026-10-01T12:00:00Z", "html_url": format!("https://github.com/MAlexVR/lumen/releases/tag/{tag}"),
-               "body": body, "assets": assets().iter().map(|a| json!({"name": a.name, "size": a.size, "browser_download_url": a.download_url})).collect::<Vec<_>>()})
+               "body": body, "assets": names.iter().map(|n| json!({"name": n, "size": 10, "url": format!("https://api.test/{n}"), "browser_download_url": format!("https://dl.test/{n}")})).collect::<Vec<_>>()})
     }
 
     fn listing() -> String {
@@ -858,7 +715,7 @@ mod tests {
     async fn fixture(
         handler: impl Fn(&Recorded, usize) -> Reply + Send + Sync + 'static,
         current: &str,
-        os: OsInfo,
+        os: UpdateEnv,
     ) -> Fixture {
         let srv = TestServer::start(handler).await;
         let tmp = tempfile::tempdir().unwrap();
@@ -879,8 +736,8 @@ mod tests {
         }
     }
 
-    fn fedora() -> OsInfo {
-        os(Family::Linux, "fedora", "")
+    fn fedora() -> UpdateEnv {
+        os(InstallKind::Rpm)
     }
 
     #[tokio::test]
@@ -902,11 +759,11 @@ mod tests {
             "https://github.com/MAlexVR/lumen/releases/tag/v0.4.0-rc.1"
         );
         assert_eq!(j["asset"]["kind"], "rpm");
-        assert_eq!(j["asset"]["name"], "Lumen-0.4.0-1.x86_64.rpm");
+        assert_eq!(j["asset"]["name"], "Lumen-0.4.0-rc.1-1.x86_64.rpm");
         assert_eq!(j["asset"]["size"], 10);
         assert_eq!(
             j["asset"]["downloadUrl"],
-            "https://dl.test/Lumen-0.4.0-1.x86_64.rpm"
+            "https://dl.test/Lumen-0.4.0-rc.1-1.x86_64.rpm"
         );
         assert!(j["checkedAt"].as_str().unwrap().ends_with('Z'));
         let req = &f.srv.requests()[0];
@@ -916,6 +773,46 @@ mod tests {
             "{}",
             req.path_and_query
         );
+    }
+
+    #[tokio::test]
+    async fn the_asset_follows_the_install_kind_and_unmanaged_installs_get_none() {
+        let one = json!([release_json("v0.4.0", false, "x")]).to_string();
+        let check = |kind: InstallKind| {
+            let one = one.clone();
+            async move {
+                let f = fixture(move |_, _| Reply::json(&one), "0.3.3", os(kind)).await;
+                serde_json::to_value(f.service.check().await.unwrap()).unwrap()
+            }
+        };
+        let rpm = check(InstallKind::Rpm).await;
+        assert_eq!(
+            (
+                rpm["installKind"].clone(),
+                rpm["manualInstallRequired"].clone()
+            ),
+            (json!("rpm"), json!(false))
+        );
+        assert_eq!(rpm["asset"]["name"], "Lumen-0.4.0-1.x86_64.rpm");
+        assert_eq!(rpm["signed"], true, "the release has the .sig of the rpm");
+        let deb = check(InstallKind::Deb).await;
+        assert_eq!(deb["asset"]["name"], "Lumen_0.4.0_amd64.deb");
+        assert_eq!(deb["signed"], false, "no .sig for the deb");
+        let win = check(InstallKind::WindowsNsis).await;
+        assert_eq!(
+            (win["installKind"].clone(), win["asset"]["kind"].clone()),
+            (json!("windows-nsis"), json!("windows-installer"))
+        );
+        let app = check(InstallKind::Appimage).await;
+        assert_eq!(
+            (app["installKind"].clone(), app["asset"]["kind"].clone()),
+            (json!("appimage"), json!("appimage"))
+        );
+        let manual = check(InstallKind::Unmanaged).await;
+        assert_eq!(manual["installKind"], "unmanaged");
+        assert_eq!(manual["manualInstallRequired"], true);
+        assert!(manual["asset"].is_null());
+        assert_eq!(manual["signed"], false);
     }
 
     #[tokio::test]
@@ -982,7 +879,7 @@ mod tests {
         let f = fixture(
             move |_, _| Reply::json(&one),
             "0.3.1",
-            os(Family::Windows, "", ""),
+            os(InstallKind::WindowsNsis),
         )
         .await;
         let info = f.service.check().await.unwrap();
@@ -992,7 +889,7 @@ mod tests {
         let f = fixture(
             move |_, _| Reply::json(&two),
             "0.3.10",
-            os(Family::Linux, "ubuntu", "debian"),
+            os(InstallKind::Deb),
         )
         .await;
         let info = f.service.check().await.unwrap();

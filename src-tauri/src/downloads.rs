@@ -46,6 +46,24 @@ pub enum ErrorCode {
     BotChallenge,
     /// Update check: GitHub refused (private repository or bad token).
     UpdateUnauthorized,
+    /// Update: a downloaded file does not match its published checksum.
+    ChecksumMismatch,
+    /// Update: the release publishes no signature for the installer.
+    SignatureMissing,
+    /// Update: the signature does not verify against the app's public key.
+    SignatureInvalid,
+    /// Update: the user dismissed the authorization prompt.
+    InstallCancelled,
+    /// Update: the installer failed or the new version did not take effect.
+    InstallFailed,
+    /// Update: this installation cannot update itself (the file path is given).
+    ManualInstallRequired,
+    /// The operation was cancelled by the user.
+    Cancelled,
+    /// A file could not be written.
+    Disk,
+    /// Update: the running version is already the newest.
+    UpToDate,
     /// GitHub's API rate limit was reached.
     RateLimited,
     /// The repository has no usable release.
