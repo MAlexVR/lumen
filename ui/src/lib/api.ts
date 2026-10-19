@@ -1,5 +1,6 @@
 // Typed access to the Tauri commands. Outside Tauri (browser preview,
 // headless screenshots) the same interface is served by an in-memory mock.
+import type { InstallStage } from "./logic/updateInstall";
 import type { UpdateInfo } from "./logic/updates";
 import type { ThumbItem, ThumbReady, ThumbResult } from "./logic/thumbs";
 import type {
@@ -108,6 +109,10 @@ export interface Api {
   updateTokenStatus(): Promise<{ saved: boolean }>;
   updateTokenSave(token: string): Promise<void>;
   updateTokenClear(): Promise<void>;
+  /** Download, verify, install and restart (S14). A successful install ends the app first. */
+  updateInstall(): Promise<{ version: string }>;
+  updateCancel(): Promise<boolean>;
+  onUpdateProgress(cb: (e: { stage: InstallStage; downloaded: number; total: number }) => void): Promise<() => void>;
   // Cached ffmpeg thumbnails (S11.thumbs).
   thumbnailsRequest(items: ThumbItem[], width?: number): Promise<ThumbResult[]>;
   thumbnailsCancel(paths: string[]): Promise<void>;
@@ -221,6 +226,9 @@ function tauriApi(): Api {
     updateTokenStatus: () => call("update_token_status"),
     updateTokenSave: (token) => call("update_token_save", { token }),
     updateTokenClear: () => call("update_token_clear"),
+    updateInstall: () => call("update_install"),
+    updateCancel: () => call("update_cancel"),
+    onUpdateProgress: (cb) => listenTo<{ stage: InstallStage; downloaded: number; total: number }>("update://progress", cb),
     thumbnailsRequest: (items, width) => call("thumbnails_request", { request: { items, width } }),
     thumbnailsCancel: (paths) => call("thumbnails_cancel", { request: { paths } }),
     thumbnailsStatus: () => call("thumbnails_status"),

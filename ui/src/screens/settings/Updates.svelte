@@ -18,6 +18,17 @@
     type UpdateAction,
     type UpdateState,
   } from "../../lib/logic/updates";
+  import {
+    initialInstall,
+    installAction,
+    installErrorKey,
+    installKindKeys,
+    progressLabel,
+    progressPercent,
+    reduceInstall,
+    type InstallAction,
+    type InstallState,
+  } from "../../lib/logic/updateInstall";
   import { app } from "../../lib/state/app.svelte";
 
   const uid = $props.id();
@@ -34,10 +45,30 @@
   let copied = $state(false);
   let openFailed = $state(false);
   let heading: HTMLElement | undefined = $state();
+  let inst = $state<InstallState>(initialInstall);
+  let restartSlow = $state(false);
+  let pathCopied = $state(false);
+  let installHeading: HTMLElement | undefined = $state();
+  let unlisten: (() => void) | undefined;
   let tick60: ReturnType<typeof setInterval> | undefined;
 
+  const idispatch = (a: InstallAction) => (inst = reduceInstall(inst, a));
+  const busy = $derived(inst.step === "running" || inst.step === "confirming");
   const dispatch = (a: UpdateAction) => (upd = reduceUpdate(upd, a));
   const version = $derived(`${/^\d/.test(app.version) ? "v" : ""}${app.version}`);
+  const act = $derived(
+    upd.step === "available"
+      ? installAction(
+          {
+            installKind: upd.info.installKind,
+            signed: upd.info.signed,
+            manualInstallRequired: upd.info.manualInstallRequired,
+            hasAsset: upd.info.asset !== null,
+          },
+          inst,
+        )
+      : null,
+  );
   const checking = $derived(upd.step === "checking");
   const draft = $derived(tokenDraft(token));
 
@@ -45,11 +76,16 @@
     tick60 = setInterval(() => (now = Date.now()), 30_000);
     const api = app.api;
     if (!api) return;
+    unlisten = await api.onUpdateProgress((e) => {
+      idispatch({ type: "progress", ...e });
+      if (e.stage === "restarting") setTimeout(() => (restartSlow = true), 20_000);
+    });
     tokenSaved = (await api.updateTokenStatus().catch(() => ({ saved: false }))).saved;
     includePre = (await api.updateSettings().catch(() => ({ includePrereleases: true }))).includePrereleases;
   });
   onDestroy(() => {
     clearInterval(tick60);
+    unlisten?.();
     token = "";
   });
 
@@ -70,6 +106,35 @@
     }
     await tick();
     heading?.focus();
+  }
+
+  async function focusInstall() {
+    await tick();
+    installHeading?.focus();
+  }
+
+  async function startInstall() {
+    const api = app.api;
+    if (!api) return;
+    restartSlow = false;
+    idispatch({ type: "start" });
+    try {
+      await api.updateInstall();
+      idispatch({ type: "progress", stage: "restarting", downloaded: 0, total: 0 });
+    } catch (e) {
+      idispatch({ type: "failed", error: e });
+      void focusInstall();
+    }
+  }
+
+  async function copyPath(path: string) {
+    try {
+      await navigator.clipboard.writeText(path);
+      pathCopied = true;
+      setTimeout(() => (pathCopied = false), 1500);
+    } catch {
+      /* the path stays selectable */
+    }
   }
 
   async function saveToken() {
@@ -142,7 +207,7 @@
         <span class="num">{version}</span>
         <span class="muted">{lastChecked ? t("upd_last", { when: relativeTime(lastChecked, now, i18n.locale) }) : t("upd_never")}</span>
       </div>
-      <button type="button" class="btn btn-quiet" onclick={check} disabled={checking}>{t(checking ? "upd_checking" : "upd_check")}</button>
+      <button type="button" class="btn btn-quiet" onclick={check} disabled={checking || inst.step === "running"}>{t(checking ? "upd_checking" : "upd_check")}</button>
     </div>
 
     <div class="result" aria-live="polite">
@@ -174,20 +239,97 @@
               <p class="muted">{t("upd_no_notes")}</p>
             {/each}
           </details>
-          <div class="actions">
-            {#if info.htmlUrl}
-              <button type="button" class="btn btn-primary" onclick={() => openRelease(info.htmlUrl)}>
-                <Icon name="external" size={16} />{t("upd_open")}
-              </button>
+          <p class="kind"><span class="label">{t("upd_kind")}</span> {t(installKindKeys(info.installKind).kind)}</p>
+          <p class="muted">{t(installKindKeys(info.installKind).note)}</p>
+          {#if !info.signed}
+            <p class="warn" role="note"><Icon name="alert" size={16} />{t("upd_unsigned")}</p>
+          {/if}
+
+          {#if inst.step === "confirming"}
+            <div class="confirm" role="group" aria-labelledby="upd-c-{uid}">
+              <h4 id="upd-c-{uid}" tabindex="-1" bind:this={installHeading}>{t("upd_confirm_title", { version: info.latest ?? "" })}</h4>
+              <p class="muted">{t("upd_confirm_admin")}</p>
+              <div class="actions">
+                <button type="button" class="btn btn-primary" onclick={startInstall}>{t("upd_confirm_yes")}</button>
+                <button type="button" class="btn btn-quiet" onclick={() => idispatch({ type: "dismiss" })}>{t("upd_confirm_no")}</button>
+              </div>
+            </div>
+          {:else if inst.step === "running"}
+            {@const pct = inst.stage === "downloading" ? progressPercent(inst.downloaded, inst.total) : null}
+            <div class="running" role="group" aria-labelledby="upd-r-{uid}">
+              <p id="upd-r-{uid}" class="stage" aria-live="polite">
+                {#if inst.stage === "downloading"}{t("upd_stage_downloading", { version: info.latest ?? "" })}
+                {:else if inst.stage === "verifying"}{t("upd_stage_verifying")}
+                {:else if inst.stage === "installing"}{t(info.installKind === "rpm" || info.installKind === "deb" ? "upd_stage_installing_pkg" : "upd_stage_installing")}
+                {:else}{t("upd_stage_restarting")}{/if}
+              </p>
+              {#if inst.stage === "downloading"}
+                <div
+                  class="bar"
+                  role="progressbar"
+                  aria-label={t("upd_progress_label")}
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow={pct ?? undefined}
+                >
+                  <span style:width="{pct ?? 0}%"></span>
+                </div>
+                <p class="muted num">{progressLabel(inst.downloaded, inst.total, i18n.locale)}</p>
+                <div class="actions">
+                  <button type="button" class="btn btn-quiet" onclick={() => app.api?.updateCancel()}>{t("upd_cancel")}</button>
+                </div>
+              {/if}
+              {#if inst.stage === "restarting" && restartSlow}<p class="muted">{t("upd_restart_slow")}</p>{/if}
+            </div>
+          {:else}
+            {#if inst.step === "error"}
+              <div class="error" role="alert">
+                <Icon name="alert" size={18} />
+                <div>
+                  <p class="what" tabindex="-1" bind:this={installHeading}>{t(inst.code === "manual_install_required" ? "upd_ierr_manual_install_required" : "upd_ierr_title")}</p>
+                  {#if inst.code !== "manual_install_required"}<p class="next">{t(installErrorKey(inst.code))}</p>{/if}
+                  {#if inst.code === "install_failed" && inst.message}<p class="next"><code>{inst.message}</code></p>{/if}
+                  {#if inst.code === "manual_install_required" && inst.path}
+                    {@const path = inst.path}
+                    <p class="next">{t("upd_manual_path")}: <code>{path}</code></p>
+                    <p class="next">{t(info.installKind === "unmanaged" ? "upd_manual_how_appimage" : "upd_manual_how_default")}</p>
+                    <div class="actions">
+                      <button type="button" class="btn btn-quiet" onclick={() => copyPath(path)}>
+                        <Icon name={pathCopied ? "check" : "file"} size={16} />{t(pathCopied ? "upd_path_copied" : "upd_copy_path")}
+                      </button>
+                    </div>
+                  {/if}
+                </div>
+              </div>
             {/if}
-            {#if info.asset}
-              {@const url = info.asset.downloadUrl}
-              <button type="button" class="btn btn-quiet" onclick={() => copyLink(url)}>
-                <Icon name={copied ? "check" : "link"} size={16} />{t(copied ? "upd_copied" : "upd_copy")}
+            <div class="actions">
+              <button
+                type="button"
+                class="btn btn-primary"
+                disabled={!act?.enabled}
+                aria-describedby={act?.reason === "unsigned" ? "upd-u-{uid}" : undefined}
+                onclick={() => {
+                  idispatch({ type: "ask" });
+                  void focusInstall();
+                }}
+              >
+                {t(act?.label === "install" ? "upd_install" : "upd_download_verify")}
               </button>
-            {/if}
-          </div>
-          {#if openFailed}<p class="muted" role="status">{t("upd_open_failed")}</p>{/if}
+              {#if info.htmlUrl}
+                <button type="button" class="btn btn-quiet" onclick={() => openRelease(info.htmlUrl)}>
+                  <Icon name="external" size={16} />{t("upd_notes_btn")}
+                </button>
+              {/if}
+              {#if info.asset && info.manualInstallRequired}
+                {@const url = info.asset.downloadUrl}
+                <button type="button" class="btn btn-quiet" onclick={() => copyLink(url)}>
+                  <Icon name={copied ? "check" : "link"} size={16} />{t(copied ? "upd_copied" : "upd_copy")}
+                </button>
+              {/if}
+            </div>
+            {#if !info.signed}<span id="upd-u-{uid}" class="visually-hidden">{t("upd_unsigned")}</span>{/if}
+            {#if openFailed}<p class="muted" role="status">{t("upd_open_failed")}</p>{/if}
+          {/if}
         </div>
       {:else if upd.step === "error"}
         <div class="error">
@@ -386,6 +528,49 @@
     content: "–";
     position: absolute;
     left: 0;
+  }
+  .kind {
+    font-size: var(--fs-sm);
+  }
+  .warn {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-2);
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+  }
+  .warn :global(svg) {
+    flex: none;
+    margin-top: 2px;
+    color: var(--lumen);
+  }
+  .confirm,
+  .running {
+    display: grid;
+    gap: var(--s-3);
+    padding: var(--s-4);
+    border: 1px solid var(--line);
+    border-radius: var(--r-2);
+  }
+  .confirm h4 {
+    font-family: var(--font-ui);
+    font-size: var(--fs-md);
+    font-weight: 600;
+  }
+  .stage {
+    font-size: var(--fs-sm);
+  }
+  .bar {
+    height: 4px;
+    background: var(--line);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .bar span {
+    display: block;
+    height: 100%;
+    background: var(--lumen);
+    transition: width var(--dur-2) var(--ease-out);
   }
   .actions {
     display: flex;

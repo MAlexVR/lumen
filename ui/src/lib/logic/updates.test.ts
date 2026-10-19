@@ -23,6 +23,9 @@ const info = (x: Partial<UpdateInfo> = {}): UpdateInfo => ({
   notes: "",
   htmlUrl: "https://github.com/x/y/releases/tag/v0.3.3",
   asset: null,
+  installKind: "rpm",
+  manualInstallRequired: false,
+  signed: true,
   checkedAt: "2026-10-18T10:00:00Z",
   ...x,
 });

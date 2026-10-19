@@ -107,6 +107,8 @@ CHANGE='[...document.querySelectorAll("button")].find(b=>b.textContent.includes(
 USE="setTimeout(()=>[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Usar esta carpeta')).click(),400)"
 UPD_CHECK='[...document.querySelectorAll("button")].find(b=>b.textContent.includes("Buscar actualizaciones")).click()'
 UPD_SCROLL='document.querySelector("[aria-labelledby^=upd-h]").scrollIntoView({block:"start"})'
+UPD_INSTALL='[...document.querySelectorAll("button")].find(b=>/Instalar y reiniciar|Descargar y verificar/.test(b.textContent)).click()'
+UPD_YES='[...document.querySelectorAll("button")].find(b=>b.textContent.trim()==="Instalar").click()'
 OPEN_DELETE='document.querySelector(".card .kebab").click();setTimeout(()=>document.querySelector("[role=menuitem]").click(),150)'
 for size in 760x520 1280x800; do
   shot ajustes "$size" --route "#/settings"
@@ -120,6 +122,14 @@ for size in 760x520 1280x800; do
     --js "$UPD_CHECK;setTimeout(()=>{$UPD_SCROLL},500)" --after 1200
   shot ajustes-act-al-dia "$size" --page "index.html?update=current" --route "#/settings" \
     --js "$UPD_CHECK;setTimeout(()=>{$UPD_SCROLL},500)" --after 1200
+  for st in "confirmando:available:" "descargando:install-ok&hold=downloading:$UPD_YES" "instalando:install-ok&hold=installing:$UPD_YES" \
+    "firma:install-sig:$UPD_YES" "manual:install-manual:$UPD_YES"; do
+    IFS=: read -r nm q yes <<<"$st"
+    step=""
+    [ -n "$yes" ] && step="setTimeout(()=>{$yes},300);"
+    shot "ajustes-inst-$nm" "$size" --page "index.html?update=$q" --route "#/settings" \
+      --js "$UPD_CHECK;setTimeout(()=>{$UPD_INSTALL;${step}setTimeout(()=>{$UPD_SCROLL},900)},500)" --after 5200
+  done
   shot biblioteca-eliminar-menu "$size" --route "#/library" --js 'document.querySelector(".card .kebab").click()' --after 600
   shot eliminar-dialogo "$size" --route "#/library" --js "$OPEN_DELETE" --after 1200
   shot eliminar-descarga-en-curso "$size" --page "index.html?delete=running" --route "#/library" --js "$OPEN_DELETE" --after 1200

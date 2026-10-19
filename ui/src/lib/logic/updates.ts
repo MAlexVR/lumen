@@ -2,6 +2,8 @@
 // relative time, token field rules and a plain-text view of release notes.
 // Pure; the component does the I/O.
 
+import type { InstallKind } from "./updateInstall";
+
 export interface UpdateAsset {
   name: string;
   size: number;
@@ -19,6 +21,10 @@ export interface UpdateInfo {
   notes: string;
   htmlUrl: string | null;
   asset: UpdateAsset | null;
+  installKind: InstallKind;
+  manualInstallRequired: boolean;
+  /** The release carries the signature of the recommended file. */
+  signed: boolean;
   checkedAt: string;
 }
 
