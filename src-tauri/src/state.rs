@@ -11,8 +11,9 @@ use lumen_media::{resolve_confined, MediaError, MediaServer};
 use serde::{Serialize, Serializer};
 
 use crate::library_delete::{
-    dir_size, resolve_target, DeleteCode, DeleteError, DeleteOutcome, DeletePreview, DeleteTarget,
-    Resolved, SystemTrash, Trasher, SIZE_BUDGET, SIZE_MAX_ENTRIES,
+    dir_size, is_disposable_group, resolve_lesson, resolve_target, DeleteCode, DeleteError,
+    DeleteOutcome, DeletePreview, DeleteTarget, LessonTarget, Resolved, ResolvedLesson,
+    SystemTrash, TargetKind, Trasher, SIZE_BUDGET, SIZE_MAX_ENTRIES,
 };
 use crate::library_open::{resolve_dir, OpenError};
 use crate::library_root::{
@@ -187,6 +188,9 @@ impl AppCore {
         busy: bool,
     ) -> Result<DeletePreview, DeleteError> {
         let root = self.library_root();
+        if target.lesson.is_some() {
+            return self.lesson_preview(&root, target, busy);
+        }
         let r = resolve_target(&root, target)?;
         let (name, lessons, lessons_with_video) = self.lesson_counts(&root, &r)?;
         let size = dir_size(&r.path, SIZE_MAX_ENTRIES, SIZE_BUDGET);
@@ -213,6 +217,9 @@ impl AppCore {
         busy: bool,
     ) -> Result<DeleteOutcome, DeleteError> {
         let root = self.library_root();
+        if target.lesson.is_some() {
+            return self.delete_lesson(&root, target, permanent, busy);
+        }
         let r = resolve_target(&root, target)?;
         if busy {
             return Err(DeleteError::new(
@@ -240,7 +247,133 @@ impl AppCore {
             moved_to_trash: !permanent,
             bytes_freed: size.bytes,
             bytes_approx: size.approx,
+            group_removed: r.kind == TargetKind::Group,
         })
+    }
+
+    fn lesson_bytes(target: &LessonTarget) -> (u64, bool) {
+        match target {
+            LessonTarget::Dir(p) => {
+                let s = dir_size(p, SIZE_MAX_ENTRIES, SIZE_BUDGET);
+                (s.bytes, s.approx)
+            }
+            LessonTarget::Files(paths) => (
+                paths
+                    .iter()
+                    .filter_map(|p| std::fs::metadata(p).ok())
+                    .map(|m| m.len())
+                    .sum(),
+                false,
+            ),
+        }
+    }
+
+    fn lesson_preview(
+        &self,
+        root: &Path,
+        target: &DeleteTarget,
+        busy: bool,
+    ) -> Result<DeletePreview, DeleteError> {
+        let r = resolve_lesson(root, target)?;
+        let (bytes, approx) = Self::lesson_bytes(&r.target);
+        Ok(DeletePreview {
+            name: r.title,
+            platform: target.platform.clone(),
+            kind: TargetKind::Lesson,
+            lessons: 1,
+            lessons_with_video: u64::from(r.has_video),
+            bytes,
+            bytes_approx: approx,
+            path: r.rel,
+            running_download: busy,
+        })
+    }
+
+    /// Moves `path` to the trash, or deletes it for good when `permanent`.
+    fn dispose(&self, path: &Path, permanent: bool) -> Result<(), DeleteError> {
+        if permanent {
+            let result = if path.is_dir() {
+                std::fs::remove_dir_all(path)
+            } else {
+                std::fs::remove_file(path)
+            };
+            return result.map_err(|e| DeleteError::internal("cannot delete", e));
+        }
+        let trasher = self
+            .trasher
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        trasher
+            .trash(path)
+            .map_err(|e| DeleteError::new(DeleteCode::TrashFailed, e))
+    }
+
+    /// Deletes one lesson (its folder, or its loose files), clears its
+    /// progress, and takes the group folder along when nothing else is left.
+    fn delete_lesson(
+        &self,
+        root: &Path,
+        target: &DeleteTarget,
+        permanent: bool,
+        busy: bool,
+    ) -> Result<DeleteOutcome, DeleteError> {
+        let r = resolve_lesson(root, target)?;
+        if busy {
+            return Err(DeleteError::new(
+                DeleteCode::DownloadRunning,
+                "a download is in progress; cancel it first",
+            ));
+        }
+        let (bytes, approx) = Self::lesson_bytes(&r.target);
+        match &r.target {
+            LessonTarget::Dir(p) => self.dispose(p, permanent)?,
+            LessonTarget::Files(paths) => {
+                for p in paths {
+                    self.dispose(p, permanent)?;
+                }
+            }
+        }
+        let cleanup = |e: &dyn std::fmt::Display| {
+            DeleteError::internal("deleted, but progress cleanup failed", e)
+        };
+        self.store()
+            .map_err(|e| cleanup(&e))?
+            .forget_lesson(&r.group_id, &r.key)
+            .map_err(|e| cleanup(&e))?;
+        let group_removed = self.remove_empty_group(root, &r, permanent);
+        Ok(DeleteOutcome {
+            deleted: true,
+            moved_to_trash: !permanent,
+            bytes_freed: bytes,
+            bytes_approx: approx,
+            group_removed,
+        })
+    }
+
+    /// After the last lesson left, the leftover housekeeping folder goes too,
+    /// by the same rules. A failure only leaves the folder in place.
+    fn remove_empty_group(&self, root: &Path, r: &ResolvedLesson, permanent: bool) -> bool {
+        let Some(folder) = r
+            .group_dir
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+        else {
+            return false;
+        };
+        let empty = LibraryScanner::new(root)
+            .scan_platform_group(r.platform, &folder)
+            .is_ok_and(|g| g.lesson_count == 0);
+        if !empty
+            || !is_disposable_group(&r.group_dir)
+            || self.dispose(&r.group_dir, permanent).is_err()
+        {
+            return false;
+        }
+        if let Ok(store) = self.store() {
+            let _ = store.forget_group(&r.group_id);
+        }
+        true
     }
 
     fn forget_progress(&self, r: &Resolved) -> Result<(), DeleteError> {
@@ -814,6 +947,7 @@ mod tests {
             platform: "skool".into(),
             group: group.into(),
             course: course.map(str::to_string),
+            lesson: None,
         }
     }
 
@@ -862,6 +996,7 @@ mod tests {
             platform: "hotmart".into(),
             group: "hotmart/Águila - Ana".into(),
             course: None,
+            lesson: None,
         };
         let h = core.delete_preview(&h, false).unwrap();
         assert_eq!((h.lessons, h.lessons_with_video, h.bytes), (1, 1, 7));
@@ -927,6 +1062,7 @@ mod tests {
             platform: "hotmart".into(),
             group: g.into(),
             course: None,
+            lesson: None,
         };
         core.delete(&t, false, false).unwrap();
         assert!(!lib.join("Hotmart/Águila - Ana").exists());
@@ -1086,6 +1222,7 @@ mod tests {
             platform: "youtube".into(),
             group: g.into(),
             course: None,
+            lesson: None,
         };
         let p = core.delete_preview(&t, false).unwrap();
         assert_eq!((p.lessons, p.lessons_with_video, p.bytes), (2, 2, 11));
@@ -1095,5 +1232,225 @@ mod tests {
         assert!(!lib.join("YouTube/Mi lista").exists());
         assert_eq!(core.progress_group(g).unwrap(), Default::default());
         assert!(lib.join("Skool/G").is_dir());
+    }
+
+    // ---- deleting one lesson ----
+
+    fn lesson_target(platform: &str, group: &str, key: &str) -> DeleteTarget {
+        DeleteTarget {
+            platform: platform.into(),
+            group: group.into(),
+            course: None,
+            lesson: Some(key.into()),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_skool_lesson_folder_goes_to_the_trash_with_only_its_own_progress() {
+        let e = env();
+        let (core, lib) = lib_core(&e).await;
+        let t = lesson_target("skool", "G", "1-C/1-S/1-L1");
+        let p = core.delete_preview(&t, false).unwrap();
+        assert_eq!(
+            (
+                p.kind,
+                p.name.as_str(),
+                p.lessons,
+                p.lessons_with_video,
+                p.bytes
+            ),
+            (TargetKind::Lesson, "L1", 1, 1, 10)
+        );
+        assert_eq!(p.path, "Skool/G/01 - C/01 - S/01 - L1");
+        let nov = core
+            .delete_preview(&lesson_target("skool", "G", "1-C/1-S/2-L2"), false)
+            .unwrap();
+        assert_eq!((nov.lessons_with_video, nov.bytes), (0, 5));
+        core.progress_set_watched("G", "1-C/1-S/1-L1", true)
+            .unwrap();
+        core.progress_save_position("G", "1-C/1-S/1-L1", 5).unwrap();
+        core.progress_set_last("G", "1-C/1-S/1-L1").unwrap();
+        core.progress_set_watched("G", "1-C/1-S/2-L2", true)
+            .unwrap();
+        let out = core.delete(&t, false, false).unwrap();
+        assert!(out.deleted && out.moved_to_trash && !out.group_removed);
+        assert_eq!(out.bytes_freed, 10);
+        assert!(!lib.join("Skool/G/01 - C/01 - S/01 - L1").exists());
+        assert!(e.home.join("trash/01 - L1/v.mp4").exists());
+        assert!(
+            lib.join("Skool/G/01 - C/01 - S/02 - L2").is_dir()
+                && lib.join("Skool/G/02 - D").is_dir()
+        );
+        assert!(lib.join("Skool/G/.complete").exists());
+        let pr = core.progress_group("G").unwrap();
+        assert_eq!(pr.watched, vec!["1-C/1-S/2-L2"]);
+        assert!(pr.positions.is_empty());
+        assert_eq!(pr.last_lesson, None);
+    }
+
+    #[tokio::test]
+    async fn the_last_lesson_of_a_group_takes_the_empty_group_with_it() {
+        let e = env();
+        let (core, lib) = lib_core(&e).await;
+        let g = "hotmart/Águila - Ana";
+        let t = lesson_target("hotmart", g, "hotmart:1-Águila/1-Módulo/1-Clase");
+        core.progress_set_watched(g, "hotmart:1-Águila/1-Módulo/1-Clase", true)
+            .unwrap();
+        let out = core.delete(&t, false, false).unwrap();
+        assert!(out.group_removed);
+        assert!(!lib.join("Hotmart/Águila - Ana").exists());
+        assert!(e.home.join("trash/Águila - Ana").is_dir());
+        assert_eq!(core.progress_group(g).unwrap(), Default::default());
+        assert!(lib.join("Skool/G").is_dir());
+    }
+
+    #[tokio::test]
+    async fn youtube_videos_are_removed_one_by_one_until_the_group_is_empty() {
+        let e = env();
+        let (core, lib) = lib_core(&e).await;
+        for n in ["01 - Uno", "02 - Dos"] {
+            let t = n.split(" - ").nth(1).unwrap();
+            put(&lib, &format!("YouTube/Videos sueltos/{n}/{t}.mp4"), 4);
+            put(
+                &lib,
+                &format!("YouTube/Videos sueltos/{n}/description.txt"),
+                2,
+            );
+            put(
+                &lib,
+                &format!("YouTube/Videos sueltos/{n}/thumbnail.jpg"),
+                1,
+            );
+            put(&lib, &format!("YouTube/Videos sueltos/{n}/.youtube-id"), 1);
+        }
+        put(&lib, "YouTube/Videos sueltos/download-report.json", 3);
+        put(&lib, "YouTube/Videos sueltos/.complete", 0);
+        let g = "youtube/Videos sueltos";
+        let key = |n: &str| format!("youtube:1-Videos sueltos/1-Videos sueltos/{n}");
+        let p = core
+            .delete_preview(&lesson_target("youtube", g, &key("1-Uno")), false)
+            .unwrap();
+        assert_eq!((p.lessons, p.lessons_with_video, p.bytes), (1, 1, 8));
+        let first = core
+            .delete(&lesson_target("youtube", g, &key("1-Uno")), false, false)
+            .unwrap();
+        assert!(!first.group_removed);
+        assert!(
+            lib.join("YouTube/Videos sueltos/.complete").exists()
+                && lib.join("YouTube/Videos sueltos/02 - Dos").is_dir()
+        );
+        let second = core
+            .delete(&lesson_target("youtube", g, &key("2-Dos")), false, false)
+            .unwrap();
+        assert!(
+            second.group_removed,
+            "only .complete and the report were left"
+        );
+        assert!(!lib.join("YouTube/Videos sueltos").exists());
+        assert!(lib.join("YouTube").is_dir());
+    }
+
+    #[tokio::test]
+    async fn a_group_with_files_of_its_own_is_never_removed_with_its_last_lesson() {
+        let e = env();
+        let (core, lib) = lib_core(&e).await;
+        put(&lib, "YouTube/L/01 - Uno/Uno.mp4", 4);
+        put(&lib, "YouTube/L/notes.txt", 9);
+        let out = core
+            .delete(
+                &lesson_target("youtube", "youtube/L", "youtube:1-L/1-L/1-Uno"),
+                false,
+                false,
+            )
+            .unwrap();
+        assert!(!out.group_removed);
+        assert!(lib.join("YouTube/L/notes.txt").exists());
+    }
+
+    #[tokio::test]
+    async fn a_loose_file_lesson_deletes_only_its_video_and_description() {
+        let e = env();
+        let (core, lib) = lib_core(&e).await;
+        put(&lib, "Hotmart/H - Me/1. M/2. Suelta.mp4", 6);
+        put(&lib, "Hotmart/H - Me/1. M/2. Suelta.html", 2);
+        put(&lib, "Hotmart/H - Me/1. M/3. Otra.mp4", 7);
+        let t = lesson_target("hotmart", "hotmart/H - Me", "hotmart:1-H/1-M/2-Suelta");
+        let p = core.delete_preview(&t, false).unwrap();
+        assert_eq!((p.lessons, p.lessons_with_video, p.bytes), (1, 1, 8));
+        assert_eq!(p.path, "Hotmart/H - Me/1. M/2. Suelta.mp4");
+        let out = core.delete(&t, false, false).unwrap();
+        assert_eq!((out.bytes_freed, out.group_removed), (8, false));
+        assert!(
+            !lib.join("Hotmart/H - Me/1. M/2. Suelta.mp4").exists()
+                && !lib.join("Hotmart/H - Me/1. M/2. Suelta.html").exists()
+        );
+        assert!(lib.join("Hotmart/H - Me/1. M/3. Otra.mp4").exists());
+        assert!(e.home.join("trash/2. Suelta.mp4").exists());
+        let perm = lesson_target("hotmart", "hotmart/H - Me", "hotmart:1-H/1-M/3-Otra");
+        core.set_trasher(Arc::new(FailTrash));
+        assert_eq!(
+            core.delete(&perm, false, false).unwrap_err().code,
+            DeleteCode::TrashFailed
+        );
+        assert!(lib.join("Hotmart/H - Me/1. M/3. Otra.mp4").exists());
+        let out = core.delete(&perm, true, false).unwrap();
+        assert!(
+            !out.moved_to_trash && out.group_removed,
+            "permanent, and nothing left in the group"
+        );
+    }
+
+    #[tokio::test]
+    async fn lesson_deletion_refuses_unknown_lessons_running_downloads_and_failing_trash() {
+        let e = env();
+        let (core, lib) = lib_core(&e).await;
+        let t = lesson_target("skool", "G", "1-C/1-S/1-L1");
+        assert_eq!(
+            core.delete(&lesson_target("skool", "G", "9-X/9-X/9-X"), false, false)
+                .unwrap_err()
+                .code,
+            DeleteCode::LessonNotFound
+        );
+        assert_eq!(
+            core.delete_preview(&lesson_target("skool", "G", "../../x"), false)
+                .unwrap_err()
+                .code,
+            DeleteCode::LessonNotFound
+        );
+        assert_eq!(
+            core.delete(&t, true, true).unwrap_err().code,
+            DeleteCode::DownloadRunning
+        );
+        core.set_trasher(Arc::new(FailTrash));
+        core.progress_set_watched("G", "1-C/1-S/1-L1", true)
+            .unwrap();
+        assert_eq!(
+            core.delete(&t, false, false).unwrap_err().code,
+            DeleteCode::TrashFailed
+        );
+        assert!(lib.join("Skool/G/01 - C/01 - S/01 - L1/v.mp4").exists());
+        assert_eq!(
+            core.progress_group("G").unwrap().watched.len(),
+            1,
+            "progress stays when nothing was deleted"
+        );
+        // The course the UI may send is ignored for lesson targets.
+        let mut with_course = t.clone();
+        with_course.course = Some("../../etc".into());
+        assert!(core.delete_preview(&with_course, false).is_ok());
+    }
+
+    #[tokio::test]
+    async fn deleting_a_whole_group_reports_it_as_removed() {
+        let e = env();
+        let (core, _lib) = lib_core(&e).await;
+        let g = core.delete(&skool("G", None), false, false).unwrap();
+        assert!(g.group_removed);
+        let e2 = env();
+        let (core2, _l2) = lib_core(&e2).await;
+        let c = core2
+            .delete(&skool("G", Some("01 - C")), false, false)
+            .unwrap();
+        assert!(!c.group_removed);
     }
 }

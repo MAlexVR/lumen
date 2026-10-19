@@ -229,6 +229,7 @@ struct LibraryChanged {
     platform: String,
     group: String,
     course: Option<String>,
+    lesson: Option<String>,
 }
 
 /// Deletes a group or course: to the OS trash, or permanently only when the
@@ -256,6 +257,7 @@ async fn library_delete(
             platform: target.platform,
             group: target.group,
             course: target.course,
+            lesson: target.lesson,
         },
     );
     Ok(out)
