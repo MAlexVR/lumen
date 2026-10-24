@@ -3,6 +3,11 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.3.11] - 2026-10-24
+
+### Changed
+- A course that comes back without modules (Hotmart, Pluralsight) now shows a clear message in the download result, with what to do next (reconnect the session and retry), instead of "unexpected response: course has no modules".
+
 ## [0.3.10] - 2026-10-24
 
 ### Fixed
