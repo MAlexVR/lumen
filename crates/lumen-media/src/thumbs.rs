@@ -222,6 +222,9 @@ enum Attempt {
 
 /// One ffmpeg run into `part`. A clean exit without a frame (the file is
 /// shorter than `at`) is `Empty`.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 async fn run_ffmpeg(
     ffmpeg: &Path,
     input: &Path,
@@ -244,6 +247,9 @@ async fn run_ffmpeg(
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .kill_on_drop(true);
+    // Without this Windows flashes a console window for every thumbnail.
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
     let mut child = match spawn(&mut cmd).await {
         Ok(c) => c,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
