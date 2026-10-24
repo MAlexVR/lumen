@@ -452,8 +452,11 @@ impl ThumbService {
     }
 }
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod tests {
+    // The fake ffmpeg is a shell script.
+    #![cfg(unix)]
+
     use super::*;
     use std::os::unix::fs::PermissionsExt;
     use tokio::sync::mpsc;
