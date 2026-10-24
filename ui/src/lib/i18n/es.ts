@@ -187,6 +187,8 @@ export const es = {
   dl_kind_module_page: "Páginas de módulo",
   dl_kind_empty_lesson: "Clases sin contenido",
   dl_kind_course: "Cursos",
+  dl_issue_no_modules: "La plataforma no devolvió módulos para este curso.",
+  dl_issue_no_modules_hint: "Reconecta tu sesión e inténtalo de nuevo. Si sigue igual, puede que el curso aún no tenga contenido o que tu cuenta no tenga acceso.",
   dl_go_settings: "Ir a Ajustes",
   dl_retry_login: "Intentar de nuevo",
   err_not_logged_in: "No hay una sesión de Skool activa.",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Issue, ReportEvent } from "../types";
-import { summarizeReport } from "./report";
+import { issueNote, summarizeReport } from "./report";
 
 const issue = (i: Partial<Issue>): Issue => ({
   lesson: "L",
@@ -63,5 +63,24 @@ describe("summarizeReport", () => {
 
   it("clamps impossible counts", () => {
     expect(summarizeReport(report({ completedLessons: 12, totalLessons: 10 })).ok).toBe(10);
+  });
+});
+
+describe("issueNote", () => {
+  const noModules = {
+    message: "dl_issue_no_modules",
+    hint: "dl_issue_no_modules_hint",
+  };
+
+  it("explains a course that came back without modules, on Hotmart and Pluralsight", () => {
+    const hotmart = issue({ kind: "course", message: "download failed: unexpected response: course has no modules" });
+    const pluralsight = issue({ kind: "course", message: "course has no modules" });
+    expect(issueNote(hotmart)).toEqual(noModules);
+    expect(issueNote(pluralsight)).toEqual(noModules);
+  });
+
+  it("leaves every other message as the backend wrote it", () => {
+    expect(issueNote(issue({ kind: "course", message: "download failed: network error" }))).toBeNull();
+    expect(issueNote(issue({ kind: "video", message: "course has no modules" }))).toBeNull();
   });
 });

@@ -189,6 +189,8 @@ export const en: Record<MessageKey, string> = {
   dl_kind_module_page: "Module pages",
   dl_kind_empty_lesson: "Lessons without content",
   dl_kind_course: "Courses",
+  dl_issue_no_modules: "The platform returned no modules for this course.",
+  dl_issue_no_modules_hint: "Reconnect your session and try again. If it still happens, the course may have no content yet or your account may not have access.",
   dl_go_settings: "Go to Settings",
   dl_retry_login: "Try again",
   err_not_logged_in: "There is no active Skool session.",

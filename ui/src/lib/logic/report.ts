@@ -1,4 +1,5 @@
 // Turns a download report into what the result panel shows.
+import type { MessageKey } from "../i18n/index.svelte";
 import type { Issue, IssueKind, ReportEvent } from "../types";
 
 export type ReportState = "complete" | "warnings" | "errors" | "cancelled";
@@ -48,4 +49,20 @@ export function summarizeReport(r: ReportEvent): ReportSummary {
     errors: group(errors),
     warnings: group(warnings),
   };
+}
+
+const NO_MODULES = /course has no modules/i;
+
+/** i18n keys that replace a backend message we know how to explain. */
+export interface IssueNote {
+  message: MessageKey;
+  hint: MessageKey;
+}
+
+/** A course that came back without modules (Hotmart, Pluralsight): say what to do. */
+export function issueNote(issue: Issue): IssueNote | null {
+  if (issue.kind === "course" && NO_MODULES.test(issue.message)) {
+    return { message: "dl_issue_no_modules", hint: "dl_issue_no_modules_hint" };
+  }
+  return null;
 }

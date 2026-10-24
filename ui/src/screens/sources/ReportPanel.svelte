@@ -3,7 +3,7 @@
   import Icon, { type IconName } from "../../lib/design/Icon.svelte";
   import { t, tn } from "../../lib/i18n/index.svelte";
   import type { DownloadEntry } from "../../lib/logic/downloads";
-  import { summarizeReport, type IssueGroup } from "../../lib/logic/report";
+  import { issueNote, summarizeReport, type IssueGroup } from "../../lib/logic/report";
   import { displayTitle } from "../../lib/logic/title";
   import type { ReportEvent } from "../../lib/types";
 
@@ -58,9 +58,15 @@
       <ul>
         {#each g.issues as issue, i (i)}
           {@const key = `url-${uid}-${severity}-${g.kind}-${i}`}
+          {@const note = issueNote(issue)}
           <li>
             <p class="lesson">{issue.lesson ? displayTitle(issue.lesson) : t("dl_lesson_unknown")}</p>
-            <p class="msg">{issue.message}</p>
+            {#if note}
+              <p class="msg">{t(note.message)}</p>
+              <p class="hint">{t(note.hint)}</p>
+            {:else}
+              <p class="msg">{issue.message}</p>
+            {/if}
             {#if issue.url || issue.host}
               <p class="where">
                 <code id={key}>{issue.url ?? issue.host}</code>
@@ -202,7 +208,8 @@
   [data-severity="warning"] .lesson {
     color: var(--text-muted);
   }
-  .msg {
+  .msg,
+  .hint {
     font-size: var(--fs-xs);
     color: var(--text-muted);
   }
