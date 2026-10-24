@@ -95,13 +95,11 @@ pub fn build_args(job: &VideoJob) -> Vec<String> {
         "-f",
         "best[height<=720]/bestvideo[height<=720]+bestaudio/best",
         "-N",
-        "64",
+        "4",
         "--retries",
         "10",
         "--fragment-retries",
         "10",
-        "--file-access-retries",
-        "30",
         "--buffer-size",
         "64K",
         "--http-chunk-size",
@@ -138,8 +136,6 @@ pub fn build_media_args(job: &MediaJob) -> Vec<String> {
         "10",
         "--fragment-retries",
         "10",
-        "--file-access-retries",
-        "30",
     ]
     .iter()
     .map(|s| (*s).to_string())
@@ -508,16 +504,12 @@ mod tests {
     }
 
     #[test]
-    fn both_recipes_retry_file_access_for_windows_scanners() {
-        // Windows antivirus/indexers hold the .part file briefly; yt-dlp's
-        // default of 3 retries gave up with WinError 32 on the final rename.
-        let video = build_args(&job(Path::new("/x"), None));
-        let media = build_media_args(&media_job(Path::new("/x")));
-        for args in [video, media] {
-            let at = args.iter().position(|a| a == "--file-access-retries");
-            let at = at.expect("--file-access-retries is set");
-            assert_eq!(args[at + 1], "30");
-        }
+    fn fragment_concurrency_stays_low_so_windows_can_rename_the_part_file() {
+        // With -N 64 the final `.part` rename failed with WinError 32 on the
+        // same HLS lesson that downloads fine with -N 4.
+        let a = build_args(&job(Path::new("/x"), None));
+        let at = a.iter().position(|x| x == "-N").expect("-N is set");
+        assert_eq!(a[at + 1], "4");
     }
 
     #[test]
