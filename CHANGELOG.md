@@ -3,6 +3,18 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.3.6] - 2026-10-24
+
+### Fixed
+- Skool: courses were all skipped as "no access" because Skool now sends `hasAccess` as `1` instead of `true`, which left downloads at "0 of 0 lessons".
+- Skool: a failure creating the group folder now names the folder instead of only "file not found".
+- Hotmart on Windows: lessons failed with `WinError 32` while renaming the `.part` file. yt-dlp now downloads 4 fragments at a time instead of 64.
+- Windows checkouts no longer corrupt the signed update test fixture (`.gitattributes`).
+
+### Changed
+- The Windows test suite compiles and passes clippy; Unix-only test helpers are gated.
+- Manual live-check examples for Skool, Hotmart and the media server (`cargo run -p ... --example ...`) read credentials only from environment variables.
+
 ## [0.3.5] - 2026-10-19
 
 ### Added
