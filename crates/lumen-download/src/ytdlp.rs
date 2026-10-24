@@ -257,6 +257,43 @@ pub fn clean_partials(output_template: &Path) {
     }
 }
 
+/// Finished files named `<stem>.<ext>` next to `output_template` (one extension
+/// only: no `.part`, `.f137.mp4` or subtitle-language leftovers).
+fn final_outputs(output_template: &Path) -> Vec<PathBuf> {
+    let (Some(dir), Some(name)) = (output_template.parent(), output_template.file_name()) else {
+        return Vec::new();
+    };
+    let name = name.to_string_lossy();
+    let stem = name.strip_suffix(".%(ext)s").unwrap_or(&name);
+    let prefix = format!("{stem}.");
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter(|e| {
+            let file = e.file_name().to_string_lossy().into_owned();
+            file.strip_prefix(&prefix)
+                .is_some_and(|ext| !ext.is_empty() && !ext.contains('.'))
+        })
+        .map(|e| e.path())
+        .collect()
+}
+
+/// Cleans a failed or cancelled run: yt-dlp leftovers plus any final file this
+/// run created (`before` is what existed when it started). A failed
+/// post-processing step leaves the raw download under its final name, which
+/// would otherwise be skipped as "already downloaded" next time.
+fn clean_failed(output_template: &Path, before: &[PathBuf]) {
+    clean_partials(output_template);
+    for created in final_outputs(output_template)
+        .into_iter()
+        .filter(|f| !before.contains(f))
+    {
+        let _ = std::fs::remove_file(created);
+    }
+}
+
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
@@ -359,6 +396,7 @@ impl YtDlp {
         if cancel.is_cancelled() {
             return Err(VideoError::Cancelled);
         }
+        let before = final_outputs(output_template);
         let mut cmd = self.command(args);
         let mut child = spawn(&mut cmd, &self.binary).await?;
 
@@ -389,7 +427,7 @@ impl YtDlp {
                     if cancel.is_cancelled() {
                         let _ = child.kill().await;
                         readers.iter().for_each(JoinHandle::abort);
-                        clean_partials(output_template);
+                        clean_failed(output_template, &before);
                         return Err(VideoError::Cancelled);
                     }
                 }
@@ -402,7 +440,7 @@ impl YtDlp {
         if status.success() {
             return Ok(());
         }
-        clean_partials(output_template);
+        clean_failed(output_template, &before);
         Err(VideoError::Failed(
             tail.message()
                 .unwrap_or_else(|| format!("yt-dlp exited with {status}")),
@@ -502,6 +540,38 @@ mod tests {
         assert_eq!(parse_percent("[download] 100% of 10MiB"), Some(100.0));
         assert_eq!(parse_percent("[download] Destination: x.mp4"), None);
         assert_eq!(parse_percent("[info] 50% something"), None);
+    }
+
+    #[test]
+    fn a_failed_run_removes_the_final_file_it_created() {
+        let tmp = tempfile::tempdir().unwrap();
+        let template = tmp.path().join("1. Lesson.%(ext)s");
+        let before = final_outputs(&template);
+        // Raw HLS download left under its final name after ffmpeg failed.
+        std::fs::write(tmp.path().join("1. Lesson.mp4"), "raw ts").unwrap();
+        std::fs::write(tmp.path().join("1. Lesson.mp4.ytdl"), "state").unwrap();
+        std::fs::write(tmp.path().join("2. Lesson.mp4"), "other lesson").unwrap();
+        clean_failed(&template, &before);
+        assert!(!tmp.path().join("1. Lesson.mp4").exists());
+        assert!(!tmp.path().join("1. Lesson.mp4.ytdl").exists());
+        assert!(
+            tmp.path().join("2. Lesson.mp4").exists(),
+            "other lessons are untouched"
+        );
+    }
+
+    #[test]
+    fn a_failed_run_keeps_a_final_file_that_existed_before() {
+        let tmp = tempfile::tempdir().unwrap();
+        let template = tmp.path().join("1. Lesson.%(ext)s");
+        std::fs::write(tmp.path().join("1. Lesson.mp4"), "good").unwrap();
+        let before = final_outputs(&template);
+        assert_eq!(before.len(), 1);
+        clean_failed(&template, &before);
+        assert_eq!(
+            std::fs::read_to_string(tmp.path().join("1. Lesson.mp4")).unwrap(),
+            "good"
+        );
     }
 
     #[test]
