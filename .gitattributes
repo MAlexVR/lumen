@@ -1,0 +1,2 @@
+# Signed fixtures must stay byte-identical on every platform (autocrlf would break the signature)
+src-tauri/tests/fixtures/update/payload.bin -text
