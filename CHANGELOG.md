@@ -3,6 +3,12 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.3.10] - 2026-10-24
+
+### Fixed
+- A video download that fails after the stream was downloaded (for example ffmpeg blocked by Windows "Controlled folder access") no longer leaves the raw file under its final name. Before, the next run treated it as already downloaded.
+- Windows no longer flashes a console window each time a thumbnail is generated on the Home screen.
+
 ## [0.3.9] - 2026-10-24
 
 ### Fixed
