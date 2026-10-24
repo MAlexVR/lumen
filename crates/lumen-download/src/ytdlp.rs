@@ -100,6 +100,8 @@ pub fn build_args(job: &VideoJob) -> Vec<String> {
         "10",
         "--fragment-retries",
         "10",
+        "--file-access-retries",
+        "30",
         "--buffer-size",
         "64K",
         "--http-chunk-size",
@@ -136,6 +138,8 @@ pub fn build_media_args(job: &MediaJob) -> Vec<String> {
         "10",
         "--fragment-retries",
         "10",
+        "--file-access-retries",
+        "30",
     ]
     .iter()
     .map(|s| (*s).to_string())
@@ -504,6 +508,19 @@ mod tests {
     }
 
     #[test]
+    fn both_recipes_retry_file_access_for_windows_scanners() {
+        // Windows antivirus/indexers hold the .part file briefly; yt-dlp's
+        // default of 3 retries gave up with WinError 32 on the final rename.
+        let video = build_args(&job(Path::new("/x"), None));
+        let media = build_media_args(&media_job(Path::new("/x")));
+        for args in [video, media] {
+            let at = args.iter().position(|a| a == "--file-access-retries");
+            let at = at.expect("--file-access-retries is set");
+            assert_eq!(args[at + 1], "30");
+        }
+    }
+
+    #[test]
     fn args_follow_the_proven_recipe() {
         let tmp = Path::new("/x");
         let a = build_args(&job(tmp, Some("https://www.skool.com/")));
@@ -515,7 +532,10 @@ mod tests {
         let n = a.len();
         assert_eq!(a[n - 2], "--");
         assert_eq!(a[n - 1], "https://stream.mux.com/p.m3u8?token=T");
-        assert_eq!(a[pos("-o").unwrap() + 1], "/x/01 - Intro.%(ext)s");
+        assert_eq!(
+            a[pos("-o").unwrap() + 1],
+            Path::new("/x").join("01 - Intro.%(ext)s").to_string_lossy()
+        );
         assert!(build_args(&job(tmp, None)).iter().all(|x| x != "--referer"));
     }
 
@@ -668,7 +688,10 @@ mod tests {
         assert_eq!(a[pos("-f") + 1], "b[height<=720]");
         assert!(a.contains(&"--newline".to_string()));
         assert!(a.contains(&"--no-playlist".to_string()));
-        assert_eq!(a[pos("-o") + 1], "/x/Title.%(ext)s");
+        assert_eq!(
+            a[pos("-o") + 1],
+            Path::new("/x").join("Title.%(ext)s").to_string_lossy()
+        );
         let n = a.len();
         assert_eq!(a[n - 2], "--");
         assert_eq!(a[n - 1], "https://www.youtube.com/watch?v=abcdefghijk");
