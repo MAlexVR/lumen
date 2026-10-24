@@ -183,10 +183,13 @@ mod tests {
     fn folder_without_seller_keeps_the_whole_name() {
         let tmp = TempDir::new().unwrap();
         put(tmp.path(), "Hotmart/Solo/1. M/1. L/1. Lesson.mp4", "v");
+        // Windows cannot create folders ending in a space.
+        #[cfg(unix)]
         put(tmp.path(), "Hotmart/Trail - /1. M/1. L/x", "v");
         let g = group(&tmp, "Solo");
         assert_eq!((g.title.as_str(), g.seller.clone()), ("Solo", None));
         assert_eq!(g.status, GroupStatus::Partial);
+        #[cfg(unix)]
         assert_eq!(group(&tmp, "Trail - ").seller, None);
     }
 

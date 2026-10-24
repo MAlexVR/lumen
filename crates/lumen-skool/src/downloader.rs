@@ -109,7 +109,9 @@ impl GroupDownloader<'_> {
         let group_dir = library_root
             .join("Skool")
             .join(group_folder_name(&group.name));
-        std::fs::create_dir_all(&group_dir).map_err(|e| SkoolError::Io(e.to_string()))?;
+        std::fs::create_dir_all(&group_dir).map_err(|e| {
+            SkoolError::Io(format!("cannot create \"{}\": {e}", group_dir.display()))
+        })?;
 
         let listing = self.source.classroom(&group.slug).await?;
         if listing.courses.is_empty() {
@@ -771,6 +773,28 @@ mod tests {
         let vimeo = by("vimeo.com");
         assert_eq!(vimeo.url, "https://vimeo.com/123");
         assert_eq!(vimeo.referer.as_deref(), Some("https://www.skool.com/"));
+    }
+
+    #[tokio::test]
+    async fn an_uncreatable_group_folder_error_names_the_folder() {
+        let root = tempfile::tempdir().unwrap();
+        // A file where the "Skool" folder must go makes create_dir_all fail.
+        std::fs::write(root.path().join("Skool"), "not a folder").unwrap();
+        let (src, vid) = (source(), FakeVideo::default());
+        let r = GroupDownloader {
+            source: &src,
+            videos: &vid,
+            sink: &Recorder::default(),
+            cancel: &CancelFlag::new(),
+            options: DownloadOptions {
+                max_parallel_lessons: 1,
+            },
+        }
+        .run(&group(), root.path())
+        .await;
+        let message = r.unwrap_err().to_string();
+        assert!(message.contains("Skool"), "{message}");
+        assert!(message.contains("Growth"), "{message}");
     }
 
     #[tokio::test]
