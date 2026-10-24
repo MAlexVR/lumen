@@ -158,6 +158,7 @@ impl HotmartService {
                 "choose a library folder first",
             ));
         }
+        crate::downloads::ensure_library_ready(&library_root)?;
         let platform = self.factory.build(&creds).map_err(map)?;
         self.downloads
             .start(course_id, platform, library_root, events)
@@ -441,6 +442,22 @@ mod tests {
         f.service.logout().unwrap();
         assert!(!f.service.status().unwrap().logged_in);
         assert!(!f.dir.path().join("hotmart-session").exists());
+    }
+
+    #[tokio::test]
+    async fn an_unwritable_library_is_refused_before_any_download_starts() {
+        let f = ok_fixture(Mode::Quick);
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let events: Arc<dyn DownloadEvents> = Arc::new(Channel(tx));
+        f.service.login_with_credentials(TOKEN, None).await.unwrap();
+        let blocked = f.dir.path().join("Lumen");
+        std::fs::write(&blocked, "not a folder").unwrap();
+        let e = f
+            .service
+            .start_download("horizonte", blocked, events)
+            .unwrap_err();
+        assert_eq!(e.code, ErrorCode::NoLibrary);
+        assert!(e.message.contains("Lumen"), "{}", e.message);
     }
 
     #[tokio::test]

@@ -132,6 +132,7 @@ impl SkoolService {
                 "choose a library folder first",
             ));
         }
+        crate::downloads::ensure_library_ready(&library_root)?;
         let platform = self.factory.build(&cookie)?;
         self.downloads
             .start(group_slug, platform, library_root, events)
@@ -372,6 +373,22 @@ mod tests {
             f.service.groups().await.unwrap_err().code,
             ErrorCode::NotLoggedIn
         );
+    }
+
+    #[tokio::test]
+    async fn an_unwritable_library_is_refused_before_any_download_starts() {
+        let f = ok_fixture(Mode::Quick);
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let events: Arc<dyn DownloadEvents> = Arc::new(Channel(tx));
+        f.service.login_with_cookies(COOKIE).await.unwrap();
+        let blocked = f.dir.path().join("Lumen");
+        std::fs::write(&blocked, "not a folder").unwrap();
+        let e = f
+            .service
+            .start_download("growth", blocked, events)
+            .unwrap_err();
+        assert_eq!(e.code, ErrorCode::NoLibrary);
+        assert!(e.message.contains("Lumen"), "{}", e.message);
     }
 
     #[tokio::test]

@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use std::future::Future;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -226,6 +226,27 @@ fn failure_report(platform: &str, group: &str, error: &PlatformError) -> Downloa
     report
 }
 
+/// Fails early, with a message naming the folder, when downloads cannot be
+/// written to `root` (for example Windows "Controlled folder access" blocking
+/// `Videos`), instead of a bare "file not found" deep inside a platform.
+pub fn ensure_library_ready(root: &Path) -> Result<(), CommandError> {
+    let unusable = |why: &str| {
+        CommandError::new(
+            ErrorCode::NoLibrary,
+            format!(
+                "cannot write to the library folder \"{}\" ({why}); choose another folder in Settings",
+                root.display()
+            ),
+        )
+    };
+    std::fs::create_dir_all(root).map_err(|e| unusable(&e.to_string()))?;
+    if crate::library_root::is_writable(root) {
+        Ok(())
+    } else {
+        Err(unusable("it is not writable"))
+    }
+}
+
 /// Registry of the downloads of one platform: starts them in the background,
 /// cancels them and lists the running ones.
 pub struct DownloadManager {
@@ -338,5 +359,30 @@ impl DownloadManager {
             .collect();
         out.sort_by(|a, b| a.id.cmp(&b.id));
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_writable_library_is_created_when_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("Lumen");
+        ensure_library_ready(&root).unwrap();
+        assert!(root.is_dir());
+    }
+
+    #[test]
+    fn an_unusable_library_names_the_folder_and_asks_for_another() {
+        let tmp = tempfile::tempdir().unwrap();
+        // A file where the folder must go: it can be neither created nor written.
+        let blocked = tmp.path().join("Lumen");
+        std::fs::write(&blocked, "not a folder").unwrap();
+        let err = ensure_library_ready(&blocked).unwrap_err();
+        assert_eq!(err.code, ErrorCode::NoLibrary);
+        assert!(err.message.contains("Lumen"), "{}", err.message);
+        assert!(err.message.contains("another folder"), "{}", err.message);
     }
 }

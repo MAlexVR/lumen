@@ -71,6 +71,7 @@ impl YoutubeService {
                 "choose a library folder first",
             ));
         }
+        crate::downloads::ensure_library_ready(&library_root)?;
         let youtube = Arc::clone(&self.youtube);
         self.downloads.start_task(
             &target.canonical_url(),

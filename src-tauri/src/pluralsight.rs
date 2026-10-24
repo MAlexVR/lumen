@@ -177,6 +177,7 @@ impl PluralsightService {
                 "choose a library folder first",
             ));
         }
+        crate::downloads::ensure_library_ready(&library_root)?;
         let api = self.factory.build_api(&credentials).map_err(map)?;
         self.downloads.start(
             course_id,
