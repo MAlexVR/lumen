@@ -481,6 +481,7 @@ impl MediaTool for YtDlp {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use std::sync::Mutex;
 
     fn job(dir: &Path, referer: Option<&str>) -> VideoJob {

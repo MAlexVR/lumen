@@ -1456,6 +1456,7 @@ mod tests {
 
     const RPM: &str = "Lumen-0.4.0-1.x86_64.rpm";
     const DEB: &str = "Lumen_0.4.0_amd64.deb";
+    #[cfg_attr(not(unix), allow(dead_code))]
     const APPIMAGE: &str = "Lumen_0.4.0_amd64.AppImage";
     const EXE: &str = "Lumen_0.4.0_x64-setup.exe";
 

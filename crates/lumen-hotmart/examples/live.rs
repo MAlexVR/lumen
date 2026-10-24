@@ -9,7 +9,9 @@
 
 use std::path::{Path, PathBuf};
 
-use lumen_core::{CancelFlag, CourseProgressSink, DownloadOptions, DownloadProgress, DownloadReport};
+use lumen_core::{
+    CancelFlag, CourseProgressSink, DownloadOptions, DownloadProgress, DownloadReport,
+};
 use lumen_download::YtDlp;
 use lumen_hotmart::client::HotmartClient;
 use lumen_hotmart::credentials::{normalize_cookies, normalize_token, Credentials};
@@ -29,7 +31,9 @@ impl CourseProgressSink for Printer {
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
-    let command = args.next().ok_or("usage: live list | download <id> <out> [sidecar]")?;
+    let command = args
+        .next()
+        .ok_or("usage: live list | download <id> <out> [sidecar]")?;
     let raw = std::env::var("HOTMART_COOKIE").map_err(|_| "set HOTMART_COOKIE")?;
     let cookies = normalize_cookies(&raw)?.ok_or("empty cookie header")?;
     let token = normalize_token(&cookies)?;
@@ -72,7 +76,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         report.issues.len()
     );
     for i in &report.issues {
-        println!("  {:?} {:?} [{:?}]: {}", i.severity, i.lesson, i.kind, i.message);
+        println!(
+            "  {:?} {:?} [{:?}]: {}",
+            i.severity, i.lesson, i.kind, i.message
+        );
     }
     Ok(())
 }

@@ -65,6 +65,7 @@ async fn raw(
 
 struct Fixture {
     _tmp: tempfile::TempDir,
+    #[cfg_attr(not(unix), allow(dead_code))]
     root: std::path::PathBuf,
     server: MediaServer,
 }
