@@ -190,7 +190,7 @@ pub fn parse_courses(page_props: &Value) -> CourseListing {
                 title,
                 reason: SkipReason::Private,
             });
-        } else if meta.get("hasAccess").and_then(Value::as_bool) != Some(true) {
+        } else if flag(meta.get("hasAccess")) != Some(true) {
             out.skipped.push(SkippedCourse {
                 title,
                 reason: SkipReason::NoAccess,
@@ -248,6 +248,12 @@ pub fn parse_course_tree(page_props: &Value) -> Result<CourseTree, SkoolError> {
     Ok(CourseTree { title, modules })
 }
 
+/// Skool sends some flags as booleans and others as 0/1 integers.
+fn flag(value: Option<&Value>) -> Option<bool> {
+    let value = value?;
+    value.as_bool().or_else(|| value.as_i64().map(|n| n != 0))
+}
+
 fn children(node: &Value) -> &[Value] {
     node.get("children")
         .and_then(Value::as_array)
@@ -263,10 +269,7 @@ fn module_entry(section: &str, unit: &Value, meta: &Value) -> ModuleEntry {
         video_id: text(meta, "videoId"),
         desc: text(meta, "desc"),
         resources: text(meta, "resources"),
-        has_access: meta
-            .get("hasAccess")
-            .and_then(Value::as_bool)
-            .unwrap_or(true),
+        has_access: flag(meta.get("hasAccess")).unwrap_or(true),
     }
 }
 
@@ -404,6 +407,32 @@ mod tests {
         assert_eq!(l.skipped[0].reason, SkipReason::Private);
         assert_eq!(l.skipped[1].reason, SkipReason::NoAccess);
         assert_eq!(l.skipped[1].title, "Locked");
+    }
+
+    #[test]
+    fn access_flags_accept_booleans_and_integers() {
+        let page = serde_json::json!({"allCourses": [
+            {"id": "a", "name": "bool-yes", "metadata": {"title": "A", "hasAccess": true, "privacy": 0}},
+            {"id": "b", "name": "int-yes", "metadata": {"title": "B", "hasAccess": 1, "privacy": 0}},
+            {"id": "c", "name": "int-no", "metadata": {"title": "C", "hasAccess": 0, "privacy": 0}},
+            {"id": "d", "name": "missing", "metadata": {"title": "D", "privacy": 0}}
+        ]});
+        let l = parse_courses(&page);
+        let names: Vec<_> = l.courses.iter().map(|c| c.short_name.as_str()).collect();
+        assert_eq!(names, ["bool-yes", "int-yes"]);
+        assert_eq!(l.skipped.len(), 2);
+        assert!(l.skipped.iter().all(|s| s.reason == SkipReason::NoAccess));
+    }
+
+    #[test]
+    fn module_access_flag_accepts_integers() {
+        let entry = |flag: serde_json::Value| {
+            let meta = serde_json::json!({"title": "T", "hasAccess": flag});
+            module_entry("S", &serde_json::json!({"id": "m"}), &meta)
+        };
+        assert!(entry(serde_json::json!(1)).has_access);
+        assert!(!entry(serde_json::json!(0)).has_access);
+        assert!(!entry(serde_json::json!(false)).has_access);
     }
 
     #[test]

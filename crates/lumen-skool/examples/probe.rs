@@ -24,6 +24,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 c.short_name, c.title, c.num_modules
             );
         }
+        for s in &listing.skipped {
+            println!("  skipped ({:?}): {}", s.reason, s.title);
+        }
     }
     Ok(())
 }
