@@ -3,6 +3,11 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.3.8] - 2026-10-24
+
+### Fixed
+- Release build: the thumbnail tests no longer trip clippy on Linux. 0.3.6 and 0.3.7 were tagged but never published because of this; 0.3.8 is the first release with the Skool and Hotmart fixes listed below.
+
 ## [0.3.7] - 2026-10-24
 
 ### Fixed
