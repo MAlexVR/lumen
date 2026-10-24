@@ -3,6 +3,11 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.3.9] - 2026-10-24
+
+### Fixed
+- Downloads on every platform now check that the library folder can be created and written before starting. When it cannot (for example Windows "Controlled folder access" blocking `Videos`), the error names the folder and asks to choose another in Settings, instead of "0 of 0 lessons" and a bare "file not found".
+
 ## [0.3.8] - 2026-10-24
 
 ### Fixed
