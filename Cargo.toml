@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/lumen-core", "crates/lumen-media", "crates/lumen-download", "crates/lumen-skool", "crates/lumen-hotmart", "crates/lumen-youtube", "crates/lumen-udemy", "crates/lumen-pluralsight", "src-tauri"]
+members = ["crates/lumen-core", "crates/lumen-media", "crates/lumen-download", "crates/lumen-skool", "crates/lumen-hotmart", "crates/lumen-youtube", "crates/lumen-udemy", "crates/lumen-pluralsight", "crates/lumen-goldenlife", "src-tauri"]
 
 [workspace.package]
 version = "0.3.11"
@@ -25,6 +25,7 @@ lumen-hotmart = { path = "crates/lumen-hotmart" }
 lumen-youtube = { path = "crates/lumen-youtube" }
 lumen-udemy = { path = "crates/lumen-udemy" }
 lumen-pluralsight = { path = "crates/lumen-pluralsight" }
+lumen-goldenlife = { path = "crates/lumen-goldenlife" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"

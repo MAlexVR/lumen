@@ -2242,6 +2242,7 @@ dependencies = [
  "base64 0.22.1",
  "lumen-core",
  "lumen-download",
+ "lumen-goldenlife",
  "lumen-hotmart",
  "lumen-media",
  "lumen-pluralsight",
@@ -2290,6 +2291,24 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
+]
+
+[[package]]
+name = "lumen-goldenlife"
+version = "0.3.11"
+dependencies = [
+ "async-trait",
+ "futures-util",
+ "lumen-core",
+ "lumen-download",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "url",
 ]
 
 [[package]]

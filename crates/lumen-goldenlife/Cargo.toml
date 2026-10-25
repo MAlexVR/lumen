@@ -1,0 +1,27 @@
+[package]
+name = "lumen-goldenlife"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait = "0.1"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+lumen-core.workspace = true
+lumen-download.workspace = true
+regex = "1"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream", "charset"] }
+serde.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs", "io-util", "time"] }
+url = "2"
+
+[dev-dependencies]
+serde_json.workspace = true
+lumen-download = { workspace = true, features = ["test-support"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["fs", "io-util", "time", "rt-multi-thread", "macros"] }
+
+[lints]
+workspace = true
