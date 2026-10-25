@@ -6,6 +6,7 @@
 pub mod files;
 pub mod http;
 pub mod layout;
+pub mod panda;
 pub mod report;
 #[cfg(any(test, feature = "test-support"))]
 #[allow(clippy::unwrap_used)] // test double: panicking on a broken fixture is the point

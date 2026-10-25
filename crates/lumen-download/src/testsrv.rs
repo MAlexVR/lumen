@@ -10,8 +10,11 @@ use axum::Router;
 
 #[derive(Debug, Clone)]
 pub struct Recorded {
+    pub method: String,
     pub path_and_query: String,
     pub headers: HeaderMap,
+    /// Request body as text (form posts); empty for GET.
+    pub body: String,
 }
 
 impl Recorded {
@@ -88,11 +91,19 @@ impl TestServer {
                     .path_and_query()
                     .map(ToString::to_string)
                     .unwrap_or_default();
-                let rec = Recorded {
-                    path_and_query: pq,
-                    headers: req.headers().clone(),
-                };
+                let method = req.method().to_string();
+                let headers = req.headers().clone();
                 let path = req.uri().path().to_string();
+                let body = axum::body::to_bytes(req.into_body(), 1 << 20)
+                    .await
+                    .map(|b| String::from_utf8_lossy(&b).into_owned())
+                    .unwrap_or_default();
+                let rec = Recorded {
+                    method,
+                    path_and_query: pq,
+                    headers,
+                    body,
+                };
                 let nth = {
                     let mut c = counts.lock().unwrap_or_else(|e| e.into_inner());
                     let n = c.entry(path).or_insert(0);
