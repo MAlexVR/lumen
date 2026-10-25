@@ -4,6 +4,9 @@
 //! `Materials/`. Video files placed directly in a module folder are also read
 //! as lessons.
 //!
+//! GoldenLife writes the same layout under `GoldenLife/<course>/`, so it is
+//! scanned by this module with its own platform folder, ids and keys.
+//!
 //! A purchased Hotmart course is ONE course: the tree stays uniform
 //! (`Group > Course > Section > Lesson`) with the single course mirroring the
 //! group title and every module mapped to a section.
@@ -11,13 +14,23 @@
 use std::fs::DirEntry;
 use std::path::Path;
 
-use crate::model::{hotmart_lesson_key, Course, Group, Lesson, LibraryPlatform, Section};
+use crate::model::{
+    goldenlife_lesson_key, hotmart_lesson_key, Course, Group, Lesson, LibraryPlatform, Section,
+};
 use crate::scanner::{
     build_lesson, extension, group_status, is_hidden, is_temp, is_video, leading_number, name_of,
     sorted_entries,
 };
 
 const SELLER_SEPARATOR: &str = " - ";
+
+/// Group id prefix: the platform's lowercase id.
+fn platform_prefix(platform: LibraryPlatform) -> &'static str {
+    match platform {
+        LibraryPlatform::Goldenlife => "goldenlife",
+        _ => "hotmart",
+    }
+}
 
 /// Splits `<name> - <seller>` on the last separator; the whole name is the
 /// title when there is no (non-empty) seller part.
@@ -50,13 +63,18 @@ fn visible_dirs(dir: &Path) -> Vec<DirEntry> {
 }
 
 pub(crate) fn scan_group(dir: &Path, folder: &str) -> Group {
+    scan_group_of(LibraryPlatform::Hotmart, dir, folder)
+}
+
+/// Scans a group of `platform` (Hotmart or GoldenLife) laid out as above.
+pub(crate) fn scan_group_of(platform: LibraryPlatform, dir: &Path, folder: &str) -> Group {
     let (title, seller) = split_title_seller(folder);
     let mut sections = Vec::new();
     for me in visible_dirs(dir) {
         let mname = name_of(&me);
         let (mtitle, midx) = split_dot_prefix(&mname);
-        let mrel = format!("{}/{folder}/{mname}", LibraryPlatform::Hotmart.dir_name());
-        let lessons = module_lessons(&me.path(), &mrel, (1, title), (midx, mtitle));
+        let mrel = format!("{}/{folder}/{mname}", platform.dir_name());
+        let lessons = module_lessons(platform, &me.path(), &mrel, (1, title), (midx, mtitle));
         sections.push(Section {
             title: mtitle.to_string(),
             index: midx,
@@ -69,8 +87,8 @@ pub(crate) fn scan_group(dir: &Path, folder: &str) -> Group {
         sections,
     }];
     Group {
-        id: format!("hotmart/{folder}"),
-        platform: LibraryPlatform::Hotmart,
+        id: format!("{}/{folder}", platform_prefix(platform)),
+        platform,
         name: folder.to_string(),
         title: title.to_string(),
         seller: seller.map(str::to_string),
@@ -82,8 +100,17 @@ pub(crate) fn scan_group(dir: &Path, folder: &str) -> Group {
 }
 
 /// Lesson folders plus loose video files, ordered by their number then title.
-fn module_lessons(dir: &Path, rel: &str, course: (u64, &str), module: (u64, &str)) -> Vec<Lesson> {
-    let key = |l: (u64, &str)| hotmart_lesson_key(course, module, l);
+fn module_lessons(
+    platform: LibraryPlatform,
+    dir: &Path,
+    rel: &str,
+    course: (u64, &str),
+    module: (u64, &str),
+) -> Vec<Lesson> {
+    let key = |l: (u64, &str)| match platform {
+        LibraryPlatform::Goldenlife => goldenlife_lesson_key(course, module, l),
+        _ => hotmart_lesson_key(course, module, l),
+    };
     let mut lessons = Vec::new();
     for le in visible_dirs(dir) {
         let lname = name_of(&le);

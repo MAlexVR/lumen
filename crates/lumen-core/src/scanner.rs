@@ -84,6 +84,11 @@ impl LibraryScanner {
             LibraryPlatform::Hotmart => Ok(crate::hotmart_scan::scan_group(&dir, group)),
             LibraryPlatform::Youtube => Ok(crate::youtube_scan::scan_group(&dir, group)),
             LibraryPlatform::Pluralsight => Ok(crate::pluralsight_scan::scan_group(&dir, group)),
+            LibraryPlatform::Goldenlife => Ok(crate::hotmart_scan::scan_group_of(
+                LibraryPlatform::Goldenlife,
+                &dir,
+                group,
+            )),
         }
     }
 
@@ -628,6 +633,66 @@ mod tests {
             format!("Pluralsight/{course}/01 - Foundations/{clip}/description.html")
         );
         assert_eq!(lesson["hasVideo"], true);
+    }
+
+    #[test]
+    fn goldenlife_library_uses_the_hotmart_layout_with_its_own_ids() {
+        let tmp = TempDir::new().unwrap();
+        put(tmp.path(), "Skool/S/01 - C/01 - Sec/01 - L/a.mp4", "v");
+        let course = "Meta Ads Basico";
+        let lesson = "2. Primeras campañas";
+        put(
+            tmp.path(),
+            &format!("GoldenLife/{course}/1. Fundamentos/{lesson}/2. Lesson.mp4"),
+            "video",
+        );
+        put(
+            tmp.path(),
+            &format!("GoldenLife/{course}/1. Fundamentos/{lesson}/Description.html"),
+            "description",
+        );
+        put(
+            tmp.path(),
+            &format!("GoldenLife/{course}/1. Fundamentos/{lesson}/Materials/guia.pdf"),
+            "pdf",
+        );
+
+        let scanner = LibraryScanner::new(tmp.path());
+        let library = scanner.scan().unwrap();
+        let platform = library
+            .platform(LibraryPlatform::Goldenlife)
+            .expect("an existing GoldenLife directory appears in the platform list");
+        assert_eq!(library.groups.len(), 1, "legacy Skool groups are unchanged");
+        let group = &platform.groups[0];
+        assert_eq!(group.id, format!("goldenlife/{course}"));
+        assert_eq!(group.platform, LibraryPlatform::Goldenlife);
+        assert_eq!(group.title, course);
+        assert_eq!(group.seller, None);
+        let l = &group.courses[0].sections[0].lessons[0];
+        assert_eq!(
+            l.key,
+            format!("goldenlife:1-{course}/1-Fundamentos/2-Primeras campañas")
+        );
+        assert_eq!(
+            l.video.as_deref(),
+            Some(format!("GoldenLife/{course}/1. Fundamentos/{lesson}/2. Lesson.mp4").as_str())
+        );
+        assert!(l.description.is_some());
+        assert_eq!(l.resources[0].name, "guia.pdf");
+
+        let json = serde_json::to_value(&library).unwrap();
+        assert!(json["platforms"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["id"] == "goldenlife"));
+        assert_eq!(
+            scanner
+                .scan_platform_group(LibraryPlatform::Goldenlife, course)
+                .unwrap()
+                .id,
+            group.id
+        );
     }
 
     #[test]

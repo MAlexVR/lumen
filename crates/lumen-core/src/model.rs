@@ -25,11 +25,18 @@ pub enum LibraryPlatform {
     Hotmart,
     Youtube,
     Pluralsight,
+    Goldenlife,
 }
 
 impl LibraryPlatform {
     /// Platforms in the order they are listed.
-    pub const ALL: [Self; 4] = [Self::Skool, Self::Hotmart, Self::Pluralsight, Self::Youtube];
+    pub const ALL: [Self; 5] = [
+        Self::Skool,
+        Self::Hotmart,
+        Self::Pluralsight,
+        Self::Goldenlife,
+        Self::Youtube,
+    ];
 
     /// Folder name under the library root (also the root of every rel path).
     pub fn dir_name(self) -> &'static str {
@@ -38,6 +45,7 @@ impl LibraryPlatform {
             Self::Hotmart => "Hotmart",
             Self::Youtube => "YouTube",
             Self::Pluralsight => "Pluralsight",
+            Self::Goldenlife => "GoldenLife",
         }
     }
 }
@@ -170,6 +178,16 @@ pub fn lesson_key(course: (u64, &str), section: (u64, &str), lesson: (u64, &str)
 /// Skool key: `hotmart:<ci>-<course>/<mi>-<module>/<li>-<lesson>`.
 pub fn hotmart_lesson_key(course: (u64, &str), module: (u64, &str), lesson: (u64, &str)) -> String {
     format!("hotmart:{}", lesson_key(course, module, lesson))
+}
+
+/// GoldenLife lesson identity, platform-qualified like the others:
+/// `goldenlife:<ci>-<course>/<mi>-<module>/<li>-<lesson>`.
+pub fn goldenlife_lesson_key(
+    course: (u64, &str),
+    module: (u64, &str),
+    lesson: (u64, &str),
+) -> String {
+    format!("goldenlife:{}", lesson_key(course, module, lesson))
 }
 
 /// YouTube lesson identity (a video of a playlist or of "Videos sueltos"),

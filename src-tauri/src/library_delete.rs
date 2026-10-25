@@ -114,6 +114,7 @@ fn parse_platform(name: &str) -> Result<LibraryPlatform, DeleteError> {
         "hotmart" => Ok(LibraryPlatform::Hotmart),
         "youtube" => Ok(LibraryPlatform::Youtube),
         "pluralsight" => Ok(LibraryPlatform::Pluralsight),
+        "goldenlife" => Ok(LibraryPlatform::Goldenlife),
         other => Err(DeleteError::new(
             DeleteCode::InvalidTarget,
             format!("unknown platform \"{other}\""),
@@ -132,7 +133,10 @@ pub fn resolve_target(root: &Path, target: &DeleteTarget) -> Result<Resolved, De
     let platform = parse_platform(&target.platform)?;
     let group_folder = match platform {
         LibraryPlatform::Skool => target.group.as_str(),
-        LibraryPlatform::Hotmart | LibraryPlatform::Youtube | LibraryPlatform::Pluralsight => {
+        LibraryPlatform::Hotmart
+        | LibraryPlatform::Youtube
+        | LibraryPlatform::Pluralsight
+        | LibraryPlatform::Goldenlife => {
             let prefix = format!("{}/", target.platform);
             target.group.strip_prefix(&prefix).ok_or_else(|| {
                 DeleteError::new(
@@ -179,7 +183,10 @@ pub fn resolve_target(root: &Path, target: &DeleteTarget) -> Result<Resolved, De
     }
     let group_id = match platform {
         LibraryPlatform::Skool => group_folder.to_string(),
-        LibraryPlatform::Hotmart | LibraryPlatform::Youtube | LibraryPlatform::Pluralsight => {
+        LibraryPlatform::Hotmart
+        | LibraryPlatform::Youtube
+        | LibraryPlatform::Pluralsight
+        | LibraryPlatform::Goldenlife => {
             format!("{}/{group_folder}", target.platform)
         }
     };
@@ -550,6 +557,26 @@ mod tests {
         nested.course = Some("01 - Module".into());
         assert_eq!(
             code(resolve_target(t.path(), &nested)),
+            DeleteCode::InvalidTarget
+        );
+    }
+
+    #[test]
+    fn resolves_qualified_goldenlife_group_and_rejects_nested_course() {
+        let t = lib();
+        fs::create_dir_all(t.path().join("GoldenLife/Meta Ads/1. Modulo/1. Clase")).unwrap();
+        let target = |course: Option<&str>| DeleteTarget {
+            platform: "goldenlife".into(),
+            group: "goldenlife/Meta Ads".into(),
+            course: course.map(str::to_string),
+            lesson: None,
+        };
+        let group = resolve_target(t.path(), &target(None)).unwrap();
+        assert_eq!(group.platform, LibraryPlatform::Goldenlife);
+        assert_eq!(group.group_id, "goldenlife/Meta Ads");
+        assert_eq!(group.rel, "GoldenLife/Meta Ads");
+        assert_eq!(
+            code(resolve_target(t.path(), &target(Some("1. Modulo")))),
             DeleteCode::InvalidTarget
         );
     }
