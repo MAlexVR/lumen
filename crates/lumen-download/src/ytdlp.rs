@@ -280,6 +280,65 @@ fn final_outputs(output_template: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
+/// Pauses between attempts to finish a rename another process is blocking.
+const RENAME_RETRY: [Duration; 6] = [
+    Duration::from_secs(1),
+    Duration::from_secs(2),
+    Duration::from_secs(3),
+    Duration::from_secs(5),
+    Duration::from_secs(8),
+    Duration::from_secs(13),
+];
+
+/// True when yt-dlp failed because another process (usually antivirus or the
+/// search indexer) holds a file it just wrote. Windows reports it as
+/// `[WinError 32]`, localised text included.
+fn is_sharing_violation(message: &str) -> bool {
+    let lower = message.to_lowercase();
+    lower.contains("winerror 32") || lower.contains("used by another process")
+}
+
+/// `<stem>.temp.<ext>` files the fixup step finished but could not rename to
+/// `<stem>.<ext>`, as `(from, to)`.
+fn pending_temp_renames(output_template: &Path) -> Vec<(PathBuf, PathBuf)> {
+    let (Some(dir), Some(name)) = (output_template.parent(), output_template.file_name()) else {
+        return Vec::new();
+    };
+    let name = name.to_string_lossy();
+    let stem = name.strip_suffix(".%(ext)s").unwrap_or(&name);
+    let prefix = format!("{stem}.temp.");
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter_map(|e| {
+            let file = e.file_name().to_string_lossy().into_owned();
+            let ext = file.strip_prefix(&prefix)?;
+            (!ext.is_empty() && !ext.contains('.'))
+                .then(|| (e.path(), dir.join(format!("{stem}.{ext}"))))
+        })
+        .collect()
+}
+
+/// Finishes the `.temp.<ext>` -> `<ext>` renames a sharing violation left
+/// undone, retrying along `delays`. True when every pending rename went
+/// through; false when there was nothing to finish or it stayed blocked.
+async fn finish_temp_renames(output_template: &Path, delays: &[Duration]) -> bool {
+    if pending_temp_renames(output_template).is_empty() {
+        return false;
+    }
+    for delay in std::iter::once(&Duration::ZERO).chain(delays) {
+        tokio::time::sleep(*delay).await;
+        let mut pending = pending_temp_renames(output_template);
+        pending.retain(|(from, to)| std::fs::rename(from, to).is_err());
+        if pending.is_empty() {
+            return true;
+        }
+    }
+    false
+}
+
 /// Cleans a failed or cancelled run: yt-dlp leftovers plus any final file this
 /// run created (`before` is what existed when it started). A failed
 /// post-processing step leaves the raw download under its final name, which
@@ -440,11 +499,19 @@ impl YtDlp {
         if status.success() {
             return Ok(());
         }
+        let message = tail
+            .message()
+            .unwrap_or_else(|| format!("yt-dlp exited with {status}"));
+        // The video is complete: only the final rename lost a race with the
+        // process scanning the file, so finish it instead of failing the lesson.
+        if is_sharing_violation(&message)
+            && finish_temp_renames(output_template, &RENAME_RETRY).await
+        {
+            clean_partials(output_template);
+            return Ok(());
+        }
         clean_failed(output_template, &before);
-        Err(VideoError::Failed(
-            tail.message()
-                .unwrap_or_else(|| format!("yt-dlp exited with {status}")),
-        ))
+        Err(VideoError::Failed(message))
     }
 }
 
@@ -572,6 +639,64 @@ mod tests {
             std::fs::read_to_string(tmp.path().join("1. Lesson.mp4")).unwrap(),
             "good"
         );
+    }
+
+    #[test]
+    fn a_windows_sharing_violation_is_recognised_in_either_language() {
+        let es = "[WinError 32] El proceso no tiene acceso al archivo porque está siendo \
+                  utilizado por otro proceso: 'a.temp.mp4' -> 'a.mp4'";
+        let en = "[WinError 32] The process cannot access the file because it is being \
+                  used by another process: 'a.temp.mp4' -> 'a.mp4'";
+        assert!(is_sharing_violation(es));
+        assert!(is_sharing_violation(en));
+        assert!(!is_sharing_violation("HTTP Error 403: Forbidden"));
+        assert!(!is_sharing_violation("[WinError 5] Access is denied"));
+    }
+
+    #[tokio::test]
+    async fn a_blocked_temp_rename_is_finished_by_lumen() {
+        let tmp = tempfile::tempdir().unwrap();
+        let template = tmp.path().join("1. Lesson.%(ext)s");
+        // yt-dlp's fixup step left the raw download under the final name.
+        std::fs::write(tmp.path().join("1. Lesson.mp4"), "raw").unwrap();
+        std::fs::write(tmp.path().join("1. Lesson.temp.mp4"), "fixed").unwrap();
+        std::fs::write(tmp.path().join("2. Other.temp.mp4"), "other").unwrap();
+
+        assert!(finish_temp_renames(&template, &[Duration::ZERO]).await);
+
+        assert_eq!(
+            std::fs::read_to_string(tmp.path().join("1. Lesson.mp4")).unwrap(),
+            "fixed"
+        );
+        assert!(!tmp.path().join("1. Lesson.temp.mp4").exists());
+        assert!(
+            tmp.path().join("2. Other.temp.mp4").exists(),
+            "other lessons are not touched"
+        );
+    }
+
+    #[tokio::test]
+    async fn nothing_to_rename_means_no_recovery() {
+        let tmp = tempfile::tempdir().unwrap();
+        let template = tmp.path().join("1. Lesson.%(ext)s");
+        assert!(!finish_temp_renames(&template, &[Duration::ZERO]).await);
+    }
+
+    #[tokio::test]
+    async fn a_rename_that_never_succeeds_gives_up_after_the_schedule() {
+        let tmp = tempfile::tempdir().unwrap();
+        let template = tmp.path().join("1. Lesson.%(ext)s");
+        std::fs::write(tmp.path().join("1. Lesson.temp.mp4"), "fixed").unwrap();
+        // A non-empty directory under the final name makes every rename fail.
+        let blocker = tmp.path().join("1. Lesson.mp4");
+        std::fs::create_dir(&blocker).unwrap();
+        std::fs::write(blocker.join("x"), "x").unwrap();
+
+        let started = std::time::Instant::now();
+        let schedule = [Duration::from_millis(40); 2];
+        assert!(!finish_temp_renames(&template, &schedule).await);
+        assert!(started.elapsed() >= Duration::from_millis(80));
+        assert!(tmp.path().join("1. Lesson.temp.mp4").exists());
     }
 
     #[test]
@@ -845,6 +970,51 @@ echo video > "$f""#
             .unwrap();
             assert_eq!(*seen.lock().unwrap(), [5.0, 50.5, 100.0]);
             assert!(tmp.path().join("01 - Intro.mp4").is_file());
+        }
+
+        #[tokio::test]
+        async fn a_blocked_final_rename_is_recovered_instead_of_failing_the_lesson() {
+            let tmp = tempfile::tempdir().unwrap();
+            let y = script(
+                tmp.path(),
+                &format!(
+                    r#"{OUTPUT_FILE}
+base=$(printf '%s' "$out" | sed 's/%(ext)s//')
+echo raw > "${{base}}mp4"
+echo fixed > "${{base}}temp.mp4"
+echo "ERROR: [WinError 32] The process cannot access the file because it is being used by another process: '${{base}}temp.mp4' -> '${{base}}mp4'" >&2
+exit 1"#
+                ),
+            );
+            y.download(&job(tmp.path(), None), &CancelFlag::new(), &|_| {})
+                .await
+                .unwrap();
+            assert_eq!(
+                std::fs::read_to_string(tmp.path().join("01 - Intro.mp4")).unwrap(),
+                "fixed\n"
+            );
+            assert!(!tmp.path().join("01 - Intro.temp.mp4").exists());
+        }
+
+        #[tokio::test]
+        async fn a_sharing_violation_without_a_finished_temp_file_still_fails_and_cleans() {
+            let tmp = tempfile::tempdir().unwrap();
+            let y = script(
+                tmp.path(),
+                &format!(
+                    r#"{OUTPUT_FILE}
+base=$(printf '%s' "$out" | sed 's/%(ext)s//')
+echo raw > "${{base}}mp4"
+echo "ERROR: [WinError 32] in use" >&2
+exit 1"#
+                ),
+            );
+            let err = y
+                .download(&job(tmp.path(), None), &CancelFlag::new(), &|_| {})
+                .await
+                .unwrap_err();
+            assert!(matches!(err, VideoError::Failed(m) if m.contains("WinError 32")));
+            assert!(!tmp.path().join("01 - Intro.mp4").exists());
         }
 
         #[tokio::test]

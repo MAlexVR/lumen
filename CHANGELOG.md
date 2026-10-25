@@ -3,6 +3,11 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [Unreleased]
+
+### Fixed
+- On Windows a video no longer fails with "[WinError 32] … 'Lesson.temp.mp4' -> 'Lesson.mp4'" when antivirus or the search indexer holds the file at the moment yt-dlp renames it. The download is already complete, so Lumen now finishes the rename itself, retrying for up to 30 seconds, instead of marking the lesson as failed.
+
 ## [0.3.11] - 2026-10-24
 
 ### Changed
