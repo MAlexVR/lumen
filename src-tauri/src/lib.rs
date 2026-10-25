@@ -1,4 +1,5 @@
 mod downloads;
+mod goldenlife;
 mod hotmart;
 mod library_delete;
 mod library_open;
@@ -24,6 +25,7 @@ use downloads::{
     CommandError as DownloadError, DownloadEvents, ErrorCode, ProgressEvent, ReportEvent,
     RunningDownload, SessionStatus,
 };
+use goldenlife::{DefaultGoldenlifeFactory, GoldenlifeLoginOutcome, GoldenlifeService};
 use hotmart::{DefaultHotmartFactory, HotmartLoginOutcome, HotmartService};
 use library_delete::{DeleteCode, DeleteError, DeleteOutcome, DeletePreview, DeleteTarget};
 use library_open::{OpenCode, OpenError};
@@ -185,11 +187,13 @@ fn platform_busy(
     hotmart: &HotmartService,
     pluralsight: &PluralsightService,
     youtube: &YoutubeService,
+    goldenlife: &GoldenlifeService,
 ) -> Result<bool, DeleteError> {
     match platform {
         "skool" => Ok(!skool.running().is_empty()),
         "hotmart" => Ok(!hotmart.running().is_empty()),
         "pluralsight" => Ok(!pluralsight.running().is_empty()),
+        "goldenlife" => Ok(!goldenlife.running().is_empty()),
         "youtube" => Ok(!youtube.running().is_empty()),
         other => Err(DeleteError::new(
             DeleteCode::InvalidTarget,
@@ -205,6 +209,7 @@ fn platform_busy_in(app: &AppHandle, platform: &str) -> Result<bool, DeleteError
         &app.state::<Arc<HotmartService>>(),
         &app.state::<Arc<PluralsightService>>(),
         &app.state::<Arc<YoutubeService>>(),
+        &app.state::<Arc<GoldenlifeService>>(),
     )
 }
 
@@ -788,6 +793,60 @@ fn pluralsight_downloads_running(
     pluralsight.running()
 }
 
+#[tauri::command]
+async fn goldenlife_login_credentials(
+    email: String,
+    password: String,
+    core: State<'_, Arc<AppCore>>,
+    goldenlife: State<'_, Arc<GoldenlifeService>>,
+) -> Result<GoldenlifeLoginOutcome, DownloadError> {
+    goldenlife
+        .login_with_credentials(&email, &password, &core.library_root())
+        .await
+}
+
+#[tauri::command]
+fn goldenlife_session_status(
+    goldenlife: State<'_, Arc<GoldenlifeService>>,
+) -> Result<SessionStatus, DownloadError> {
+    goldenlife.status()
+}
+
+#[tauri::command]
+fn goldenlife_logout(goldenlife: State<'_, Arc<GoldenlifeService>>) -> Result<(), DownloadError> {
+    goldenlife.logout()
+}
+
+#[tauri::command]
+async fn goldenlife_courses(
+    core: State<'_, Arc<AppCore>>,
+    goldenlife: State<'_, Arc<GoldenlifeService>>,
+) -> Result<Vec<lumen_goldenlife::GoldenlifeCourseInfo>, DownloadError> {
+    goldenlife.courses(&core.library_root()).await
+}
+
+#[tauri::command]
+fn goldenlife_download_start(
+    course: String,
+    app: AppHandle,
+    core: State<'_, Arc<AppCore>>,
+    goldenlife: State<'_, Arc<GoldenlifeService>>,
+) -> Result<String, DownloadError> {
+    goldenlife.start_download(&course, core.library_root(), Arc::new(TauriEvents { app }))
+}
+
+#[tauri::command]
+fn goldenlife_download_cancel(id: String, goldenlife: State<'_, Arc<GoldenlifeService>>) -> bool {
+    goldenlife.cancel(&id)
+}
+
+#[tauri::command]
+fn goldenlife_downloads_running(
+    goldenlife: State<'_, Arc<GoldenlifeService>>,
+) -> Vec<RunningDownload> {
+    goldenlife.running()
+}
+
 /// Cached video thumbnails: answers at once with ready/pending/unavailable;
 /// finished items arrive as `thumbnails://ready` events.
 #[tauri::command]
@@ -941,6 +1000,10 @@ pub fn run() {
                 session::SessionStore::for_platform(&data_dir, "hotmart"),
                 Arc::new(DefaultHotmartFactory::new(ytdlp.clone())),
             )));
+            app.manage(Arc::new(GoldenlifeService::new(
+                session::SessionStore::for_platform(&data_dir, "goldenlife"),
+                Arc::new(DefaultGoldenlifeFactory::new(ytdlp.clone())),
+            )));
             app.manage(Arc::new(PluralsightService::new(
                 session::SessionStore::for_platform(&data_dir, "pluralsight"),
                 Arc::new(DefaultPluralsightFactory::new(ytdlp)),
@@ -1002,6 +1065,13 @@ pub fn run() {
             pluralsight_download_start,
             pluralsight_download_cancel,
             pluralsight_downloads_running,
+            goldenlife_login_credentials,
+            goldenlife_session_status,
+            goldenlife_logout,
+            goldenlife_courses,
+            goldenlife_download_start,
+            goldenlife_download_cancel,
+            goldenlife_downloads_running,
             thumbnails_request,
             thumbnails_cancel,
             thumbnails_status,

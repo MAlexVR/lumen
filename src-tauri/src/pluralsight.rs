@@ -557,10 +557,21 @@ mod tests {
             Arc::new(YtDlp::locate(None)),
             None,
         )));
-        assert!(
-            super::super::platform_busy("pluralsight", &skool, &hotmart, &service, &youtube)
-                .unwrap()
+        let goldenlife = crate::goldenlife::GoldenlifeService::new(
+            SessionStore::for_platform(dependency_dir.path(), "goldenlife"),
+            Arc::new(crate::goldenlife::DefaultGoldenlifeFactory::new(
+                YtDlp::locate(None),
+            )),
         );
+        assert!(super::super::platform_busy(
+            "pluralsight",
+            &skool,
+            &hotmart,
+            &service,
+            &youtube,
+            &goldenlife
+        )
+        .unwrap());
         assert!(service.cancel(&id));
         let mut saw_progress = false;
         let report = loop {
@@ -582,10 +593,15 @@ mod tests {
         assert_eq!(report.report.platform, "pluralsight");
         assert!(report.report.cancelled);
         assert!(service.running().is_empty());
-        assert!(
-            !super::super::platform_busy("pluralsight", &skool, &hotmart, &service, &youtube)
-                .unwrap()
-        );
+        assert!(!super::super::platform_busy(
+            "pluralsight",
+            &skool,
+            &hotmart,
+            &service,
+            &youtube,
+            &goldenlife
+        )
+        .unwrap());
         assert!(session_dir.path().join("pluralsight-session").exists());
 
         let (tx, mut rx) = mpsc::unbounded_channel();

@@ -24,6 +24,8 @@ pub enum ErrorCode {
     InvalidCookies,
     /// Hotmart: the pasted token (or cookies) is malformed.
     InvalidToken,
+    /// GoldenLife: the email or password was rejected (or is unusable).
+    InvalidCredentials,
     AlreadyRunning,
     NoLibrary,
     LoginCancelled,
