@@ -5,7 +5,7 @@ import { mediaUrl, type Api } from "../api";
 import { allGroups } from "../logic/library";
 import type { GroupProgress, Library } from "../types";
 import fixture from "./library.json";
-import { createBus, createHotmartMock, createPluralsightMock, createSkoolMock } from "./downloadsMock";
+import { createBus, createGoldenlifeMock, createHotmartMock, createPluralsightMock, createSkoolMock } from "./downloadsMock";
 import { createLibraryMock } from "./libraryMock";
 import { createYoutubeMock, youtubeLibrary } from "./youtubeMock";
 import { createUpdateMock } from "./updateMock";
@@ -70,6 +70,30 @@ export function createMockApi(): Api {
       }],
     }],
   });
+  library.platforms.push({
+    id: "goldenlife",
+    groups: [{
+      id: "goldenlife/Creator Basics",
+      platform: "goldenlife",
+      name: "Creator Basics",
+      title: "Creator Basics",
+      seller: null,
+      status: "partial",
+      lessonCount: 2,
+      courses: [{
+        title: "Creator Basics",
+        index: 1,
+        sections: [{
+          title: "Welcome",
+          index: 1,
+          lessons: [
+            { key: "goldenlife:Creator Basics/1. Welcome/1. Start here", title: "Start here", index: 1, video: "GoldenLife/Creator Basics/1. Welcome/1. Start here/1. Start here.mp4", description: null, hasVideo: true, resources: [] },
+            { key: "goldenlife:Creator Basics/1. Welcome/2. Your first video", title: "Your first video", index: 2, video: "GoldenLife/Creator Basics/1. Welcome/2. Your first video/2. Your first video.mp4", description: "GoldenLife/Creator Basics/1. Welcome/2. Your first video/Description.html", hasVideo: true, resources: [] },
+          ],
+        }],
+      }],
+    }],
+  });
   const progress = seedProgress(library);
   const params = new URLSearchParams(location.search);
   const bus = createBus();
@@ -123,6 +147,7 @@ export function createMockApi(): Api {
     ...createSkoolMock(params.get("skool"), bus),
     ...createHotmartMock(params.get("hotmart"), bus),
     ...createPluralsightMock(params.get("pluralsight"), bus),
+    ...createGoldenlifeMock(params.get("goldenlife"), bus),
     onDownloadProgress: bus.onProgress,
     onDownloadReport: bus.onReport,
   };

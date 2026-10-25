@@ -35,7 +35,7 @@ export interface Course {
   sections: Section[];
 }
 
-export type PlatformId = "skool" | "hotmart" | "pluralsight" | "youtube";
+export type PlatformId = "skool" | "hotmart" | "pluralsight" | "goldenlife" | "youtube";
 
 /** One downloaded group. Skool: a community with courses; Hotmart: one
  * purchased course (exactly one Course whose sections are its modules). */
@@ -82,6 +82,7 @@ export type DownloadErrorCode =
   | "not_logged_in"
   | "session_expired"
   | "invalid_cookies"
+  | "invalid_credentials"
   | "already_running"
   | "no_library"
   | "login_cancelled"
@@ -144,6 +145,21 @@ export interface PluralsightLoginOutcome {
   courses: PluralsightCourse[];
 }
 
+/** Course of the Golden Life academy; `shelf` is its section ("UGC", "CREADOR DIGITAL"). */
+export interface GoldenlifeCourse {
+  id: string | null;
+  title: string;
+  shelf: string | null;
+  imageUrl: string | null;
+  folder: string;
+  issue: string | null;
+}
+
+export interface GoldenlifeLoginOutcome {
+  loggedIn: boolean;
+  courses: GoldenlifeCourse[];
+}
+
 export interface RunningDownload {
   id: string;
   platform: PlatformId;
@@ -197,7 +213,7 @@ export interface RootInfo {
 }
 
 export interface LibrarySummary {
-  platforms: ("Skool" | "Hotmart" | "Pluralsight")[];
+  platforms: ("Skool" | "Hotmart" | "Pluralsight" | "GoldenLife")[];
   hasLibrary: boolean;
 }
 

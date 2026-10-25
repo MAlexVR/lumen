@@ -59,11 +59,18 @@ const ps1 = group({
   title: "JavaScript Fundamentals",
   courses: [course(1, "JavaScript Fundamentals", ["ps1"])],
 });
+const gl1 = group({
+  id: "goldenlife/Creator Basics",
+  platform: "goldenlife",
+  title: "Creator Basics",
+  courses: [course(1, "Creator Basics", ["gl1"])],
+});
 const library: Library = {
   platforms: [
     { id: "skool", groups: [skool] },
     { id: "hotmart", groups: [hot1, hot2] },
     { id: "pluralsight", groups: [ps1] },
+    { id: "goldenlife", groups: [gl1] },
   ],
   groups: [skool],
 };
@@ -71,8 +78,7 @@ const none: GroupProgress = { watched: [], lastLesson: null, positions: [] };
 
 describe("library selectors", () => {
   it("lists groups of every platform", () => {
-    expect(allGroups(library).map((g) => g.id)).toEqual(["ACADEMIA AURORA", "hotmart/Fotografía - Estudio Norte", "hotmart/Finanzas", "pluralsight/JavaScript Fundamentals-0123456789abcdef"]);
-  });
+    expect(allGroups(library).map((g) => g.id)).toEqual(["ACADEMIA AURORA", "hotmart/Fotografía - Estudio Norte", "hotmart/Finanzas", "pluralsight/JavaScript Fundamentals-0123456789abcdef", "goldenlife/Creator Basics"]);  });
 
   it("falls back to the deprecated groups list without platforms", () => {
     expect(allGroups({ groups: [skool] } as unknown as Library).map((g) => g.id)).toEqual(["ACADEMIA AURORA"]);
@@ -84,7 +90,7 @@ describe("library selectors", () => {
   });
 
   it("reports only platforms that have groups", () => {
-    expect(platformsPresent(library)).toEqual(["skool", "hotmart", "pluralsight"]);
+    expect(platformsPresent(library)).toEqual(["skool", "hotmart", "pluralsight", "goldenlife"]);
     expect(platformsPresent({ platforms: [{ id: "skool", groups: [skool] }, { id: "hotmart", groups: [] }], groups: [] })).toEqual(["skool"]);
   });
 
@@ -103,6 +109,7 @@ describe("libraryEntries", () => {
       ["hotmart/Fotografía - Estudio Norte", 1],
       ["hotmart/Finanzas", 1],
       ["pluralsight/JavaScript Fundamentals-0123456789abcdef", 1],
+      ["goldenlife/Creator Basics", 1],
     ]);
   });
 
@@ -137,6 +144,7 @@ describe("shelves", () => {
       ["ACADEMIA AURORA", "skool", 2],
       ["hotmart", "hotmart", 2],
       ["pluralsight", "pluralsight", 1],
+      ["goldenlife", "goldenlife", 1],
     ]);
     expect(s[1].items.map((i) => i.group.id)).toEqual(["hotmart/Fotografía - Estudio Norte", "hotmart/Finanzas"]);
     expect(s[2].items[0].group.id).toBe("pluralsight/JavaScript Fundamentals-0123456789abcdef");

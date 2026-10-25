@@ -7,13 +7,14 @@ describe("platform registry", () => {
       ["hotmart", "Hotmart"],
       ["skool", "Skool"],
       ["pluralsight", "Pluralsight"],
+      ["goldenlife", "Golden Life"],
       ["youtube", "YouTube"],
       ["udemy", "Udemy"],
     ]);
   });
 
   it("marks only platforms with a backend as available", () => {
-    expect(PLATFORMS.filter((p) => p.status === "available").map((p) => p.id)).toEqual(["hotmart", "skool", "pluralsight", "youtube", "udemy"]);
+    expect(PLATFORMS.filter((p) => p.status === "available").map((p) => p.id)).toEqual(["hotmart", "skool", "pluralsight", "goldenlife", "youtube", "udemy"]);
   });
 
   it("routes each platform under downloads", () => {

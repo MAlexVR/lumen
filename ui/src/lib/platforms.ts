@@ -5,6 +5,8 @@
 import hotmart from "../assets/platforms/hotmart.webp";
 import hotmartMark from "../assets/platforms/hotmart-mark.webp";
 import pluralsight from "../assets/platforms/pluralsight.webp";
+import goldenlife from "../assets/platforms/goldenlife.webp";
+import goldenlifeMark from "../assets/platforms/goldenlife-mark.webp";
 import skool from "../assets/platforms/skool.webp";
 import udemy from "../assets/platforms/udemy.svg";
 import youtube from "../assets/platforms/youtube.svg";
@@ -49,6 +51,7 @@ export const PLATFORMS: readonly Platform[] = [
   p("hotmart", "Hotmart", hotmart, "#f65124", { status: "available", mark: { src: hotmartMark, bg: "#ffffff" }, markScale: 1.3 }),
   p("skool", "Skool", skool, "#ffffff", { status: "available", markScale: 1.85 }),
   p("pluralsight", "Pluralsight", pluralsight, "#ffffff", { status: "available", markScale: 3.3 }),
+  p("goldenlife", "Golden Life", goldenlife, "#0a0a0a", { status: "available", inset: 8, mark: { src: goldenlifeMark, bg: "#0a0a0a" }, markScale: 1.7 }),
   p("youtube", "YouTube", youtube, "#ffffff", { status: "available", inset: 27.5, markScale: 0.92 }),
   p("udemy", "Udemy", udemy, "#ffffff", { status: "available", inset: 24, markScale: 1.05 }),
 ];

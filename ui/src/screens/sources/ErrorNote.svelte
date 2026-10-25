@@ -8,7 +8,15 @@
   let { error, platform = null, children }: { error: DownloadError; platform?: PlatformId | null; children?: Snippet } = $props();
   // Pluralsight words the session errors for itself; every other code is shared.
   const PS_CODES = ["not_logged_in", "session_expired", "invalid_cookies", "already_running", "no_library", "login_cancelled", "login_timeout", "network", "invalid_token", "internal"];
-  const prefix = $derived(platform === "pluralsight" && PS_CODES.includes(error.code) ? "ps_err" : "err");
+  // Golden Life signs in with email and password, so it words its own session errors too.
+  const GL_CODES = ["not_logged_in", "session_expired", "invalid_credentials", "already_running", "no_library", "network", "internal"];
+  const prefix = $derived(
+    platform === "pluralsight" && PS_CODES.includes(error.code)
+      ? "ps_err"
+      : platform === "goldenlife" && GL_CODES.includes(error.code)
+        ? "gl_err"
+        : "err",
+  );
 </script>
 
 <div class="note" role="alert" data-code={error.code}>

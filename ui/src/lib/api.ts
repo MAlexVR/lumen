@@ -20,6 +20,8 @@ import type {
   HotmartLoginOutcome,
   PluralsightLoginOutcome,
   PluralsightCourse,
+  GoldenlifeLoginOutcome,
+  GoldenlifeCourse,
   Library,
   LoginOutcome,
   PlatformGroup,
@@ -102,6 +104,13 @@ export interface Api {
   pluralsightDownloadStart(course: string): Promise<string>;
   pluralsightDownloadCancel(id: string): Promise<boolean>;
   pluralsightDownloadsRunning(): Promise<RunningDownload[]>;
+  goldenlifeLoginCredentials(email: string, password: string): Promise<GoldenlifeLoginOutcome>;
+  goldenlifeSessionStatus(): Promise<{ loggedIn: boolean }>;
+  goldenlifeLogout(): Promise<void>;
+  goldenlifeCourses(): Promise<GoldenlifeCourse[]>;
+  goldenlifeDownloadStart(course: string): Promise<string>;
+  goldenlifeDownloadCancel(id: string): Promise<boolean>;
+  goldenlifeDownloadsRunning(): Promise<RunningDownload[]>;
   // Updates (S12.update): check the releases, settings and the optional read-only token.
   updateCheck(): Promise<UpdateInfo>;
   updateSettings(): Promise<{ includePrereleases: boolean }>;
@@ -155,6 +164,28 @@ export function createPluralsightCommands(call: CommandInvoker): Pick<
     pluralsightDownloadStart: (course) => call("pluralsight_download_start", { course }),
     pluralsightDownloadCancel: (id) => call("pluralsight_download_cancel", { id }),
     pluralsightDownloadsRunning: () => call("pluralsight_downloads_running"),
+  };
+}
+
+/** Golden Life Tauri contract: credentials go in once, only the session cookie is kept. */
+export function createGoldenlifeCommands(call: CommandInvoker): Pick<
+  Api,
+  | "goldenlifeLoginCredentials"
+  | "goldenlifeSessionStatus"
+  | "goldenlifeLogout"
+  | "goldenlifeCourses"
+  | "goldenlifeDownloadStart"
+  | "goldenlifeDownloadCancel"
+  | "goldenlifeDownloadsRunning"
+> {
+  return {
+    goldenlifeLoginCredentials: (email, password) => call("goldenlife_login_credentials", { email, password }),
+    goldenlifeSessionStatus: () => call("goldenlife_session_status"),
+    goldenlifeLogout: () => call("goldenlife_logout"),
+    goldenlifeCourses: () => call("goldenlife_courses"),
+    goldenlifeDownloadStart: (course) => call("goldenlife_download_start", { course }),
+    goldenlifeDownloadCancel: (id) => call("goldenlife_download_cancel", { id }),
+    goldenlifeDownloadsRunning: () => call("goldenlife_downloads_running"),
   };
 }
 
@@ -220,6 +251,7 @@ function tauriApi(): Api {
     udemyDiagnosticLast: () => call("udemy_diagnostic_last"),
     onUdemyProgress: (cb) => listenTo<UdemyProgress>("udemy://diagnose-progress", cb),
     ...createPluralsightCommands(call),
+    ...createGoldenlifeCommands(call),
     updateCheck: () => call("update_check"),
     updateSettings: () => call("update_settings"),
     updateSetIncludePrereleases: (value) => call("update_set_include_prereleases", { value }),

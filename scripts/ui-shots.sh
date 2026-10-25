@@ -56,6 +56,8 @@ for size in 760x520 1024x640 1280x800; do
   shot plataformas-udemy "$size" --route "#/downloads/udemy"
   shot plataformas-skool "$size" --page "index.html?skool=connected" --route "#/downloads" \
     --js 'document.querySelector("a.tile[data-id=skool]").click()' --after 1200
+  shot plataformas-goldenlife-conectado "$size" --page "index.html?goldenlife=connected" --route "#/downloads/goldenlife"
+  shot biblioteca-goldenlife "$size" --route "#/library/goldenlife"
 done
 # Poster card previews with real video (needs MEDIA_ROOT)
 if [ ${#MEDIA[@]} -gt 0 ]; then
@@ -148,6 +150,7 @@ for size in 760x520 1280x800; do
     --js "$OPEN_DELETE;setTimeout(()=>document.querySelector('dialog .trash').click(),700)"
 done
 shot plataformas-pluralsight 1280x800 --route "#/downloads/pluralsight"
+shot plataformas-goldenlife 1280x800 --route "#/downloads/goldenlife"
 shot reproductor-cine 1280x800 "${MEDIA[@]}" --route "#/watch/$SKOOL_LESSON" --wait 3500 \
   --js 'window.dispatchEvent(new KeyboardEvent("keydown",{key:"t",bubbles:true}))'
 shot reproductor-recursos 1280x800 "${MEDIA[@]}" --route "#/watch/$RES_LESSON" --wait 3500 --js "${SCROLL}m.scrollTop=560"

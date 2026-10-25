@@ -12,6 +12,7 @@ import type {
   PlatformGroup,
   PlatformId,
   PluralsightCourse,
+  GoldenlifeCourse,
   RunningDownload,
   YoutubePreview,
   YoutubeQuality,
@@ -47,7 +48,8 @@ export interface DownloadItemSession {
 export interface SessionAdapter<Item> {
   platform: PlatformId;
   status(): Promise<{ loggedIn: boolean }>;
-  loginWebview(): Promise<Item[]>;
+  /** Absent on platforms that only sign in with credentials. */
+  loginWebview?(): Promise<Item[]>;
   logout(): Promise<void>;
   list(): Promise<Item[]>;
   start(key: string): Promise<string>;
@@ -118,7 +120,8 @@ export class PlatformSession<Item> {
 
   loginWebview(): Promise<boolean> {
     const a = this.#adapter;
-    return a ? this.#login(() => a.loginWebview(), true) : Promise.resolve(false);
+    const login = a?.loginWebview?.bind(a);
+    return login ? this.#login(login, true) : Promise.resolve(false);
   }
 
   /** Manual credentials (Skool cookie header, Hotmart token). */
@@ -185,6 +188,20 @@ export function createPluralsightSessionAdapter(api: Api): SessionAdapter<Plural
     start: (key) => api.pluralsightDownloadStart(key),
     cancel: (id) => api.pluralsightDownloadCancel(id),
     running: () => api.pluralsightDownloadsRunning(),
+  };
+}
+
+export const goldenlife = new PlatformSession<GoldenlifeCourse>();
+
+export function createGoldenlifeSessionAdapter(api: Api): SessionAdapter<GoldenlifeCourse> {
+  return {
+    platform: "goldenlife",
+    status: () => api.goldenlifeSessionStatus(),
+    logout: () => api.goldenlifeLogout(),
+    list: () => api.goldenlifeCourses(),
+    start: (key) => api.goldenlifeDownloadStart(key),
+    cancel: (id) => api.goldenlifeDownloadCancel(id),
+    running: () => api.goldenlifeDownloadsRunning(),
   };
 }
 
@@ -347,6 +364,7 @@ export async function initDownloads(api: Api): Promise<void> {
       running: () => api.hotmartDownloadsRunning(),
     }),
     pluralsight.init(createPluralsightSessionAdapter(api)),
+    goldenlife.init(createGoldenlifeSessionAdapter(api)),
     youtube.init(api),
   ]);
 }

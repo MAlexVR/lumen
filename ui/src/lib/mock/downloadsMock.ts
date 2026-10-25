@@ -11,6 +11,7 @@ import type {
   PlatformGroup,
   PlatformId,
   PluralsightCourse,
+  GoldenlifeCourse,
   ProgressEvent,
   ReportEvent,
   RunningDownload,
@@ -341,5 +342,58 @@ export function createPluralsightMock(preset: string | null, bus: Bus): Pluralsi
     },
     pluralsightDownloadCancel: async (id) => bus.cancel(id, "pluralsight"),
     pluralsightDownloadsRunning: async () => bus.runningOf("pluralsight"),
+  };
+}
+
+// Golden Life ---------------------------------------------------------------
+
+const GOLDENLIFE_COURSES: GoldenlifeCourse[] = [
+  { id: "101", title: "Creator Basics", shelf: "UGC", imageUrl: null, folder: "Creator Basics", issue: null },
+  { id: "102", title: "Phone video editing", shelf: "UGC", imageUrl: null, folder: "Phone video editing", issue: null },
+  { id: "201", title: "Personal branding on social media", shelf: "CREADOR DIGITAL", imageUrl: null, folder: "Marca personal en redes", issue: null },
+  { id: null, title: "Reto VIP", shelf: "CREADOR DIGITAL", imageUrl: null, folder: "Reto VIP", issue: "This course has no content of its own on the academy." },
+];
+
+type GoldenlifeApi = Pick<
+  Api,
+  | "goldenlifeLoginCredentials"
+  | "goldenlifeSessionStatus"
+  | "goldenlifeLogout"
+  | "goldenlifeCourses"
+  | "goldenlifeDownloadStart"
+  | "goldenlifeDownloadCancel"
+  | "goldenlifeDownloadsRunning"
+>;
+
+export function createGoldenlifeMock(preset: string | null, bus: Bus): GoldenlifeApi {
+  let loggedIn = preset !== null;
+  const courseName = (id: string) => GOLDENLIFE_COURSES.find((course) => course.id === id)?.title ?? id;
+  if (preset === "downloading") bus.simulate("goldenlife", "101", courseName("101"));
+  if (preset && REPORT_PRESETS[preset]) bus.finished("goldenlife", "101", courseName("101"), REPORT_PRESETS[preset]);
+
+  return {
+    goldenlifeSessionStatus: async () => ({ loggedIn }),
+    // The preview accepts any password except the literal "wrong".
+    goldenlifeLoginCredentials: async (_email, password) => {
+      if (password === "wrong") throw err("invalid_credentials", "wrong email or password");
+      loggedIn = true;
+      return { loggedIn, courses: structuredClone(GOLDENLIFE_COURSES) };
+    },
+    goldenlifeLogout: async () => {
+      loggedIn = false;
+    },
+    goldenlifeCourses: async () => {
+      if (!loggedIn) throw err("not_logged_in", "not logged in");
+      return structuredClone(GOLDENLIFE_COURSES);
+    },
+    goldenlifeDownloadStart: async (course) => {
+      if (!loggedIn) throw err("not_logged_in", "not logged in");
+      if (preset === "nolibrary") throw err("no_library", "choose a library folder first");
+      if (!GOLDENLIFE_COURSES.some((item) => item.id === course)) throw err("internal", "course cannot be downloaded");
+      if (bus.isRunning("goldenlife", course)) throw err("already_running", "already running");
+      return bus.simulate("goldenlife", course, courseName(course));
+    },
+    goldenlifeDownloadCancel: async (id) => bus.cancel(id, "goldenlife"),
+    goldenlifeDownloadsRunning: async () => bus.runningOf("goldenlife"),
   };
 }

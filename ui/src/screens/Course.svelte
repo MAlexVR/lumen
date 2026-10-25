@@ -30,7 +30,7 @@
 {:else if course && stats}
   <div class="page">
     <a class="back" href={href({ name: "library", platform: g?.platform ?? null })}>
-      <Icon name="arrowLeft" size={16} />{g?.platform === "hotmart" ? "Hotmart" : g?.platform === "pluralsight" ? "Pluralsight" : displayTitle(g?.title ?? group)}
+      <Icon name="arrowLeft" size={16} />{g?.platform === "hotmart" ? "Hotmart" : g?.platform === "pluralsight" ? "Pluralsight" : g?.platform === "goldenlife" ? "Golden Life" : displayTitle(g?.title ?? group)}
     </a>
 
     <header class="head">
@@ -46,7 +46,9 @@
             ? t("hotmart_course")
             : g?.platform === "pluralsight"
               ? t("ps_course")
-              : t("course_n", { n: String(course.index).padStart(2, "0") })}
+              : g?.platform === "goldenlife"
+                ? t("gl_course")
+                : t("course_n", { n: String(course.index).padStart(2, "0") })}
         </span>
         <h1>{displayTitle(course.title)}</h1>
         {#if g?.seller}<p class="seller">{g.seller}</p>{/if}

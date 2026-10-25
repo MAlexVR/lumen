@@ -14,9 +14,12 @@
     issue?: string | null;
   }
 
+  /** Directory of each platform under the library root. */
+  const FOLDER_ROOT = { hotmart: "Hotmart", pluralsight: "Pluralsight", goldenlife: "GoldenLife" } as const;
+
   let { session, platform, items, heading, emptyText }: {
     session: DownloadItemSession;
-    platform: "hotmart" | "pluralsight";
+    platform: "hotmart" | "pluralsight" | "goldenlife";
     items: CourseListItem[];
     heading: string;
     emptyText: string;
@@ -36,7 +39,7 @@
           coverUrl={course.coverUrl}
           facts={course.facts}
           local={localStatusByFolder(app.library, platform, course.folder)}
-          folder={`${platform === "hotmart" ? "Hotmart" : "Pluralsight"}/${course.folder}`}
+          folder={`${FOLDER_ROOT[platform]}/${course.folder}`}
           disabledReason={course.issue}
         />
       {/each}

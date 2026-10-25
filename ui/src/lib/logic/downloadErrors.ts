@@ -5,6 +5,7 @@ export const ERROR_CODES: readonly DownloadErrorCode[] = [
   "not_logged_in",
   "session_expired",
   "invalid_cookies",
+  "invalid_credentials",
   "already_running",
   "no_library",
   "login_cancelled",

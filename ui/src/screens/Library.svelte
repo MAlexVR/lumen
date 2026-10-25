@@ -34,7 +34,7 @@
   const entries = $derived(libraryEntries(app.library, active, query));
   const skoolEntries = $derived(entries.filter((e) => e.group.platform === "skool"));
   /** Platforms whose groups are one course each: one shelf of posters per platform. */
-  const SINGLE: PlatformId[] = ["hotmart", "pluralsight"];
+  const SINGLE: PlatformId[] = ["hotmart", "pluralsight", "goldenlife"];
   const singleSections = $derived(
     SINGLE.map((id) => ({ id, entries: entries.filter((e) => e.group.platform === id) })).filter((x) => x.entries.length),
   );

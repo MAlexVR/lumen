@@ -25,7 +25,7 @@ const PICKS: Record<string, string> = {
   error: "/home/usuario/Documentos/solo-lectura",
 };
 const SUMMARIES: Record<string, LibrarySummary> = {
-  [PICKS.existing]: { platforms: ["Skool", "Hotmart", "Pluralsight"], hasLibrary: true },
+  [PICKS.existing]: { platforms: ["Skool", "Hotmart", "Pluralsight", "GoldenLife"], hasLibrary: true },
   [PICKS.empty]: { platforms: [], hasLibrary: false },
   [PICKS.error]: { platforms: [], hasLibrary: false },
 };
@@ -96,7 +96,7 @@ export function createLibraryMock(params: URLSearchParams, library: Library): Li
         lessonsWithVideo: withVideo,
         bytes: withVideo * 87_400_000 + lessons.length * 120_000,
         bytesApprox: lessons.length > 200,
-        path: `${g.platform === "skool" ? "Skool" : g.platform === "hotmart" ? "Hotmart" : "Pluralsight"}/${g.name}${target.course ? `/${target.course}` : ""}`,
+        path: `${g.platform === "skool" ? "Skool" : g.platform === "hotmart" ? "Hotmart" : g.platform === "goldenlife" ? "GoldenLife" : "Pluralsight"}/${g.name}${target.course ? `/${target.course}` : ""}`,
         runningDownload: del === "running",
       };
     },
