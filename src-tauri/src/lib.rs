@@ -826,7 +826,7 @@ async fn goldenlife_courses(
 }
 
 #[tauri::command]
-fn goldenlife_download_start(
+async fn goldenlife_download_start(
     course: String,
     app: AppHandle,
     core: State<'_, Arc<AppCore>>,
@@ -1094,6 +1094,25 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `DownloadManager::start` spawns on Tokio, so a synchronous command (which
+    /// Tauri runs on the main thread, outside any runtime) freezes the app.
+    #[test]
+    fn download_start_commands_are_async() {
+        let source = include_str!("lib.rs");
+        let starts: Vec<&str> = source
+            .lines()
+            .map(str::trim_start)
+            .filter(|l| {
+                (l.starts_with("fn ") || l.starts_with("async fn "))
+                    && l.contains("_download_start(")
+            })
+            .collect();
+        assert!(starts.len() >= 5, "{starts:?}");
+        for line in starts {
+            assert!(line.starts_with("async fn "), "{line}");
+        }
+    }
 
     #[test]
     fn app_info_reports_name_and_version() {
