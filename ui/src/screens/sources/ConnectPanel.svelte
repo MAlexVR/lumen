@@ -3,7 +3,6 @@
   // (Skool cookie header, Hotmart token) in a collapsed disclosure.
   import type { Snippet } from "svelte";
   import Icon from "../../lib/design/Icon.svelte";
-  import BrandMark from "../../lib/components/BrandMark.svelte";
   import { t } from "../../lib/i18n/index.svelte";
   import { formatTime } from "../../lib/logic/time";
   import { LOGIN_TIMEOUT_MS, type PlatformSession } from "../../lib/state/downloads.svelte";
@@ -49,7 +48,6 @@
 <section class="connect" aria-labelledby="connect-h-{uid}">
   <span class="halo" aria-hidden="true"></span>
   <div class="lead">
-    <BrandMark size={36} />
     <h2 id="connect-h-{uid}">{title}</h2>
     <p class="body">{body}</p>
 

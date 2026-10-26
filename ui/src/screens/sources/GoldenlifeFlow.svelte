@@ -1,6 +1,5 @@
 <script lang="ts">
   // Golden Life flow: email + password sign-in; the password lives only in this component state.
-  import BrandMark from "../../lib/components/BrandMark.svelte";
   import { t } from "../../lib/i18n/index.svelte";
   import { canSubmitCredentials, displayGoldenlifeCourses } from "../../lib/logic/goldenlife";
   import { app } from "../../lib/state/app.svelte";
@@ -50,7 +49,6 @@
     <section class="connect" aria-labelledby="gl-connect-{uid}">
       <span class="halo" aria-hidden="true"></span>
       <div class="lead">
-        <BrandMark size={36} />
         <h2 id="gl-connect-{uid}">{t("gl_connect_title")}</h2>
         <p class="body">{t("gl_connect_body")}</p>
         <form onsubmit={submit}>
