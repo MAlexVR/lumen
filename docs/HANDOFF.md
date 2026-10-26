@@ -4,9 +4,9 @@ Read `AGENTS.md` first (rules and style are normative). Contracts and evidence p
 
 ## State (Lumen 0.3.0)
 
-Built and verified on Linux (Fedora, WebKitGTK) with fixtures and fakes; **not verified**: live Skool/Hotmart/Pluralsight/YouTube/Udemy, the native folder dialog, the real trash UI, Windows 11.
+Built and verified on Linux (Fedora, WebKitGTK) with fixtures and fakes; **not verified**: live Skool/Hotmart/Pluralsight/YouTube/Udemy (Golden Life was checked live, see below), the native folder dialog, the real trash UI, Windows 11.
 
-- Platforms in code: Hotmart, Skool, Pluralsight and YouTube (videos and playlists) work end to end against fakes. Udemy has a connection wizard and a diagnostic only (no downloader yet).
+- Platforms in code: Hotmart, Skool, Pluralsight, Golden Life and YouTube (videos and playlists) work end to end against fakes. Golden Life (`crates/lumen-goldenlife`, Cademí LMS, email + password form login, Panda Video HLS and YouTube embeds) was also exercised against the live academy with `cargo run -p lumen-goldenlife --example live -- <credentials-file> survey|download` (spec and evidence: `odd/tasks/goldenlife.md`). Udemy has a connection wizard and a diagnostic only (no downloader yet).
 - UI: Inicio (continue hero with a real video frame + shelves), Biblioteca (platform tabs, posters, delete), Curso (per-module progress), Reproductor, Descargas (platform picker + per-platform flows), Ajustes (library folder).
 - Tests at the last integration: `cargo test --workspace` 521 passed, UI `pnpm test` 285 passed.
 

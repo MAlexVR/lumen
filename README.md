@@ -20,7 +20,7 @@
 
 ## What it does
 
-- **Download** courses you already own from **Hotmart**, **Skool** and **Pluralsight**, and single videos or playlists from **YouTube**.
+- **Download** courses you already own from **Hotmart**, **Skool**, **Pluralsight** and **Golden Life** (sign in with your academy email and password), and single videos or playlists from **YouTube**.
   A guided check for **Udemy** tells you which of your courses are downloadable (DRM-protected ones are not); downloading from Udemy is not implemented yet.
   Videos go through `yt-dlp`; descriptions, attachments and linked files are saved next to each lesson.
 - **Watch offline** in a built-in classroom: home with *continue where you left off*, a library with posters per course,

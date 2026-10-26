@@ -5,6 +5,9 @@ Each release's notes and its git tag message are taken from the matching section
 
 ## [Unreleased]
 
+### Added
+- **Golden Life** (Golden Life Academy, built on the Cademí platform) is a new download platform. Sign in with the academy email and password; Lumen keeps only the session (the password is never stored). Every course is listed by academy section with its cover, and each lesson is saved as `GoldenLife/<course>/<N. section>/<N. lesson>/` with its video (Panda Video, plus embedded YouTube videos), `Description.html` and `Materials/` attachments. A lesson the platform itself shows without a video is reported as a warning instead of failing the course. The Golden Life logo appears in the platform picker and the library.
+
 ### Fixed
 - On Windows a video no longer fails with "[WinError 32] … 'Lesson.temp.mp4' -> 'Lesson.mp4'" when antivirus or the search indexer holds the file at the moment yt-dlp renames it. The download is already complete, so Lumen now finishes the rename itself, retrying for up to 30 seconds, instead of marking the lesson as failed.
 
