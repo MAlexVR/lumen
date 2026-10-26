@@ -399,6 +399,13 @@ impl GoldenlifeClient {
         Err(GoldenlifeError::InvalidResponse("too many redirects"))
     }
 
+    /// A locked course or lesson bounces to the login page just like a dead
+    /// session does. `Ok` when the session still works (the item is locked),
+    /// `Unauthorized` when it really expired.
+    async fn locked_or_expired(&self) -> Result<(), GoldenlifeError> {
+        self.page("/area/vitrine/home").await.map(|_| ())
+    }
+
     async fn page(&self, path_and_query: &str) -> Result<(String, Url), GoldenlifeError> {
         let (resp, url) = self.get(path_and_query, false).await?;
         let html = resp.text().await.map_err(network)?;
@@ -443,9 +450,16 @@ impl GoldenlifeApi for GoldenlifeClient {
 
     async fn outline(&self, course_id: &str) -> Result<Outline, GoldenlifeError> {
         let course_id = numeric(course_id)?;
-        let (html, _) = self
+        let page = self
             .page(&format!("/area/conteudo/produto/{course_id}"))
-            .await?;
+            .await;
+        let (html, _) = match page {
+            Ok(page) => page,
+            Err(GoldenlifeError::Unauthorized) => {
+                return self.locked_or_expired().await.map(|()| Outline::default())
+            }
+            Err(e) => return Err(e),
+        };
         let mut outline = parse_outline(&html);
         if outline.product_id.as_deref() != Some(course_id) {
             // The course redirected to a lesson of another course: it has no
@@ -457,9 +471,19 @@ impl GoldenlifeApi for GoldenlifeClient {
 
     async fn lesson(&self, lesson_id: &str) -> Result<LessonPage, GoldenlifeError> {
         let lesson_id = numeric(lesson_id)?;
-        let (html, url) = self
-            .page(&format!("/area/conteudo/aula/{lesson_id}"))
-            .await?;
+        let page = self.page(&format!("/area/conteudo/aula/{lesson_id}")).await;
+        let (html, url) = match page {
+            Ok(page) => page,
+            Err(GoldenlifeError::Unauthorized) => {
+                return self
+                    .locked_or_expired()
+                    .await
+                    .and(Err(GoldenlifeError::InvalidResponse(
+                        "the lesson is not available for this account",
+                    )))
+            }
+            Err(e) => return Err(e),
+        };
         if !url.path().starts_with("/area/conteudo/aula/") {
             return Err(GoldenlifeError::InvalidResponse(
                 "the lesson is not available for this account",
@@ -649,6 +673,44 @@ mod tests {
         assert!(
             alias.sections.is_empty(),
             "content of another course is not this course's"
+        );
+    }
+
+    /// Academy double whose home works for any session carrying a cookie
+    /// while every course and lesson bounces to the login page (what a locked
+    /// course does), or everything bounces (a dead session).
+    fn locked_academy(session_alive: bool) -> impl Fn(&Recorded, usize) -> Reply {
+        move |req, _| match req.path_and_query.as_str() {
+            "/area/vitrine/home" if session_alive => Reply::html(HOME_PAGE),
+            _ => redirect("/auth/login"),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_locked_course_or_lesson_is_not_an_expired_session() {
+        let server = TestServer::start(locked_academy(true)).await;
+        let client =
+            GoldenlifeClient::new(&Session::new("a=b").unwrap(), &config(&server)).unwrap();
+        assert_eq!(client.outline("999").await.unwrap(), Outline::default());
+        let err = client.lesson("999").await.unwrap_err();
+        assert!(
+            matches!(err, GoldenlifeError::InvalidResponse(_)),
+            "{err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_dead_session_is_still_unauthorized_for_courses_and_lessons() {
+        let server = TestServer::start(locked_academy(false)).await;
+        let client =
+            GoldenlifeClient::new(&Session::new("a=b").unwrap(), &config(&server)).unwrap();
+        assert_eq!(
+            client.outline("999").await.unwrap_err(),
+            GoldenlifeError::Unauthorized
+        );
+        assert_eq!(
+            client.lesson("999").await.unwrap_err(),
+            GoldenlifeError::Unauthorized
         );
     }
 
