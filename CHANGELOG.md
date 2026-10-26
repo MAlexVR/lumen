@@ -3,6 +3,13 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.4.1] - 2026-10-25
+
+### Fixed
+- Pressing Download on a Golden Life course no longer freezes the app ("Lumen is not responding").
+- The Golden Life logo now shows in the platform picker on Linux (WebKit did not draw its transparent image).
+- The platform connect screens no longer show the Lumen logo above "Connect your account".
+
 ## [0.4.0] - 2026-10-25
 
 ### Added
