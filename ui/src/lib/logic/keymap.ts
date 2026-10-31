@@ -12,6 +12,7 @@ export interface KeyInput {
 
 export type PlayerAction =
   | { type: "toggle-play" }
+  | { type: "restart" }
   | { type: "seek"; by: number }
   | { type: "volume"; by: number }
   | { type: "toggle-mute" }
@@ -26,6 +27,8 @@ export const SPEEDS: readonly number[] = [0.75, 1, 1.25, 1.5, 1.75, 2];
 const PLAIN: Record<string, PlayerAction> = {
   " ": { type: "toggle-play" },
   k: { type: "toggle-play" },
+  "0": { type: "restart" },
+  home: { type: "restart" },
   j: { type: "seek", by: -10 },
   l: { type: "seek", by: 10 },
   arrowleft: { type: "seek", by: -5 },

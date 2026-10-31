@@ -82,6 +82,14 @@
     else video.pause();
   }
 
+  /** Plays the lesson again from its first second, whether it was paused, playing or finished. */
+  function restart() {
+    if (!video) return;
+    video.currentTime = 0;
+    void video.play().catch(() => {});
+    show(formatTime(0));
+  }
+
   function seekBy(by: number) {
     if (!video || !duration) return;
     video.currentTime = Math.max(0, Math.min(duration, video.currentTime + by));
@@ -141,6 +149,8 @@
     switch (action.type) {
       case "toggle-play":
         return togglePlay();
+      case "restart":
+        return restart();
       case "seek":
         return seekBy(action.by);
       case "volume":
@@ -254,15 +264,21 @@
   <div class="controls">
     <SeekBar {current} {duration} {buffered} onseek={(s) => video && (video.currentTime = s)} />
     <div class="bar">
-      <button class="icon-btn" type="button" onclick={togglePlay} aria-label={t(paused ? "play" : "pause")}>
-        <Icon name={paused ? "play" : "pause"} />
-      </button>
-      <button class="icon-btn" type="button" onclick={() => seekBy(-10)} aria-label={t("back10")}>
-        <Icon name="back10" />
-      </button>
-      <button class="icon-btn" type="button" onclick={() => seekBy(10)} aria-label={t("fwd10")}>
-        <Icon name="fwd10" />
-      </button>
+      <div class="group" role="group" aria-label={t("playback")}>
+        <button class="icon-btn" type="button" onclick={togglePlay} aria-label={t(paused ? "play" : "pause")}>
+          <Icon name={paused ? "play" : "pause"} />
+        </button>
+        <button class="icon-btn" type="button" onclick={restart} aria-label={t("restart")} title={t("restart")}>
+          <Icon name="restart" />
+        </button>
+        <button class="icon-btn" type="button" onclick={() => seekBy(-10)} aria-label={t("back10")}>
+          <Icon name="back10" />
+        </button>
+        <button class="icon-btn" type="button" onclick={() => seekBy(10)} aria-label={t("fwd10")}>
+          <Icon name="fwd10" />
+        </button>
+      </div>
+      <span class="divider" aria-hidden="true"></span>
       <div class="volume">
         <button
           class="icon-btn"
@@ -444,6 +460,18 @@
   }
   .bar .icon-btn[aria-pressed="true"] {
     color: var(--lumen);
+  }
+  .group {
+    display: flex;
+    align-items: center;
+    gap: var(--s-1);
+  }
+  .divider {
+    align-self: center;
+    width: 1px;
+    height: 16px;
+    margin-inline: var(--s-2);
+    background: var(--line);
   }
   .volume {
     display: flex;
