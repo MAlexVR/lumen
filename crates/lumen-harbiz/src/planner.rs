@@ -355,19 +355,13 @@ mod tests {
         let long = "02. Calf raise with a pause and a twist";
         let cut = "02. Calf raise";
         assert!(same_exercise_stem(cut, long) && same_exercise_stem(long, cut));
-        assert!(same_exercise_stem(
-            "02. CALF RAISE",
-            long
-        ));
+        assert!(same_exercise_stem("02. CALF RAISE", long));
     }
 
     #[test]
     fn different_exercises_never_match_even_when_the_start_is_alike() {
         assert!(!same_exercise_stem("02. Old name", "02. New name"));
-        assert!(!same_exercise_stem(
-            "03. Calf raise",
-            "02. Calf raise"
-        ));
+        assert!(!same_exercise_stem("03. Calf raise", "02. Calf raise"));
         assert!(
             !same_exercise_stem("02. Lunge", "02. Lunge with a long weighted twist"),
             "too short to be a cut"
@@ -377,15 +371,8 @@ mod tests {
     #[test]
     fn a_cut_video_name_is_found_for_the_full_exercise_stem() {
         let tmp = tempfile::tempdir().unwrap();
-        std::fs::write(
-            tmp.path().join("02. Calf raise.mp4"),
-            "x",
-        )
-        .unwrap();
-        let found = find_video(
-            tmp.path(),
-            "02. Calf raise with a pause and a twist",
-        );
+        std::fs::write(tmp.path().join("02. Calf raise.mp4"), "x").unwrap();
+        let found = find_video(tmp.path(), "02. Calf raise with a pause and a twist");
         assert!(found.is_some());
         assert!(find_video(tmp.path(), "02. Another exercise entirely").is_none());
     }

@@ -1455,10 +1455,7 @@ mod tests {
             "w1",
             "2026-06-02",
             "t",
-            vec![exercise(
-                "Calf raise with a pause",
-                Some(&url_of(A)),
-            )],
+            vec![exercise("Calf raise with a pause", Some(&url_of(A)))],
         )]);
         let out = run(&agenda, tmp.path()).await;
         assert!(
