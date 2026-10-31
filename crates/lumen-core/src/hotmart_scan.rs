@@ -153,6 +153,7 @@ fn module_lessons(
             index: lidx,
             video: Some(format!("{rel}/{fname}")),
             description,
+            video_note: None,
             has_video: true,
             thumbnail: None,
             resources: Vec::new(),

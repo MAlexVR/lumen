@@ -2,6 +2,7 @@
 //! `<root>/Skool/<group>/<NN - course>/<NN - section>/<NN - lesson>/` and the
 //! Hotmart layout handled by [`crate::hotmart_scan`].
 
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, DirEntry};
 use std::path::{Path, PathBuf};
 
@@ -235,12 +236,14 @@ pub(crate) fn build_lesson(dir: &Path, rel: &str, title: &str, index: u64, key: 
         index,
         video: None,
         description: None,
+        video_note: None,
         has_video: false,
         thumbnail: None,
         resources: Vec::new(),
         dir: Some(rel.to_string()),
     };
     let mut files = sorted_entries(dir);
+    let (notes, video_stems) = video_notes(&files);
     // Numbered files first (by N), `N. Lesson.mp4` before `N. Lesson [id].mp4`;
     // unnumbered ones follow (0 wraps to the largest key).
     files.sort_by_cached_key(|e| {
@@ -269,13 +272,21 @@ pub(crate) fn build_lesson(dir: &Path, rel: &str, title: &str, index: u64, key: 
         }
         if is_video(&name) {
             let mut res = resource(&e.path(), rel, &name);
+            let note = notes
+                .get(&stem_of(&name))
+                .map(|note| format!("{rel}/{note}"));
             if lesson.video.is_none() {
                 lesson.video = Some(res.path);
+                lesson.video_note = note;
                 lesson.has_video = true;
             } else {
                 res.kind = ResourceKind::Video;
+                res.description = note;
                 lesson.resources.push(res);
             }
+            continue;
+        }
+        if lower.ends_with(".html") && video_stems.contains(&stem_of(&name)) {
             continue;
         }
         let mut res = resource(&e.path(), rel, &name);
@@ -308,12 +319,39 @@ fn collect_resources(dir: &Path, rel: &str, out: &mut Vec<Resource>) {
     }
 }
 
+/// Lowercase file name without its extension.
+fn stem_of(name: &str) -> String {
+    name.rsplit_once('.')
+        .map_or(name, |(stem, _)| stem)
+        .to_lowercase()
+}
+
+/// The `.html` notes by video stem, and the stems of the videos. A note named
+/// like a video describes that video; `Description.html` and the reading page
+/// describe the lesson.
+fn video_notes(files: &[DirEntry]) -> (HashMap<String, String>, HashSet<String>) {
+    let mut notes = HashMap::new();
+    let mut video_stems = HashSet::new();
+    for entry in files {
+        let name = name_of(entry);
+        let lower = name.to_ascii_lowercase();
+        if is_video(&name) {
+            video_stems.insert(stem_of(&name));
+        } else if lower.ends_with(".html") && lower != DESCRIPTION_FILE && lower != READING_FILE {
+            notes.insert(stem_of(&name), name);
+        }
+    }
+    notes.retain(|stem, _| video_stems.contains(stem));
+    (notes, video_stems)
+}
+
 fn resource(path: &Path, rel: &str, name: &str) -> Resource {
     let mut res = Resource {
         name: name.to_string(),
         path: format!("{rel}/{name}"),
         url: None,
         kind: ResourceKind::File,
+        description: None,
     };
     if let Some((head, rest)) = name.split_at_checked(DRM_PREFIX.len()) {
         if !rest.is_empty() && head.eq_ignore_ascii_case(DRM_PREFIX) {
@@ -440,6 +478,42 @@ mod tests {
                 (10, "Ten")
             ]
         );
+    }
+
+    #[test]
+    fn a_note_named_like_a_video_belongs_to_that_video_and_is_not_a_resource() {
+        let tmp = TempDir::new().unwrap();
+        for name in [
+            "01. Squat.mp4",
+            "01. Squat.html",
+            "02. Lunge.mp4",
+            "02. Lunge.HTML",
+            "03. Step.mp4",
+            "Description.html",
+            "guide.html",
+        ] {
+            put(tmp.path(), &format!("{L}/{name}"), "x");
+        }
+        let l = lesson(&tmp);
+        assert_eq!(
+            l.video.as_deref(),
+            Some(format!("{L}/01. Squat.mp4").as_str())
+        );
+        assert_eq!(
+            l.video_note.as_deref(),
+            Some(format!("{L}/01. Squat.html").as_str())
+        );
+        assert_eq!(
+            l.description.as_deref(),
+            Some(format!("{L}/Description.html").as_str())
+        );
+        let names: Vec<_> = l.resources.iter().map(|r| r.name.as_str()).collect();
+        assert_eq!(names, ["02. Lunge.mp4", "03. Step.mp4", "guide.html"]);
+        assert_eq!(
+            l.resources[0].description.as_deref(),
+            Some(format!("{L}/02. Lunge.HTML").as_str())
+        );
+        assert_eq!(l.resources[1].description, None);
     }
 
     #[test]

@@ -9,6 +9,8 @@ export interface Resource {
   path: string;
   url: string | null;
   kind: ResourceKind;
+  /** For a further video: the `.html` note shown while it plays. */
+  description?: string | null;
 }
 
 export interface Lesson {
@@ -17,6 +19,8 @@ export interface Lesson {
   index: number;
   video: string | null;
   description: string | null;
+  /** The `.html` note of the main video (what to read while it plays). */
+  videoNote?: string | null;
   hasVideo: boolean;
   resources: Resource[];
   /** YouTube: library-relative path of the video's own thumbnail file. */

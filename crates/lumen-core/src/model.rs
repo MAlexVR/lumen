@@ -132,6 +132,9 @@ pub struct Lesson {
     pub index: u64,
     pub video: Option<String>,
     pub description: Option<String>,
+    /// A `<video name>.html` next to the main video: what to read while it plays.
+    #[serde(default)]
+    pub video_note: Option<String>,
     pub has_video: bool,
     /// YouTube only: root-relative path of the lesson's own `thumbnail.<ext>`.
     #[serde(default)]
@@ -166,6 +169,9 @@ pub struct Resource {
     pub path: String,
     pub url: Option<String>,
     pub kind: ResourceKind,
+    /// For a further video: its `<video name>.html` note, when it has one.
+    #[serde(default)]
+    pub description: Option<String>,
 }
 
 /// Stable lesson identity (progress is stored under it, so it must never
