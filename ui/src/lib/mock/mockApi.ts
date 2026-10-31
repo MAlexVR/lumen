@@ -176,6 +176,14 @@ export function createMockApi(): Api {
     ...createPluralsightMock(params.get("pluralsight"), bus),
     ...createGoldenlifeMock(params.get("goldenlife"), bus),
     ...createHarbizMock(params.get("harbiz"), bus),
+    workoutPlan: async (video) =>
+      video.includes("Hip mobility")
+        ? [
+            { number: 1, name: "Bodyweight squat", sets: 2, target: "10", rest: 30 },
+            { number: 3, name: "Walking lunge", sets: 3, target: "12", rest: 30 },
+            { number: 4, name: "Plank hold", sets: 2, target: "45 s", rest: 60 },
+          ]
+        : [],
     downloadPause: async (id) => bus.setPaused(id, true),
     downloadResume: async (id) => bus.setPaused(id, false),
     onDownloadProgress: bus.onProgress,

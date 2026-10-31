@@ -30,6 +30,8 @@ describe("actionForKey", () => {
     ["0", { type: "restart" }],
     ["Home", { type: "restart" }],
     ["r", { type: "toggle-loop" }],
+    ["s", { type: "set-done" }],
+    ["S", { type: "set-done" }],
     ["R", { type: "toggle-loop" }],
   ])("maps %j", (key, action) => {
     expect(actionForKey(k(key))).toEqual(action);

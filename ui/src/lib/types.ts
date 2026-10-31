@@ -183,6 +183,17 @@ export interface HarbizLoginOutcome {
   courses: HarbizCourse[];
 }
 
+/** What a workout asks of one exercise: sets, repetitions per set and rest. */
+export interface ExercisePlan {
+  /** 1-based position in the workout (the `NN` of the video file name). */
+  number: number;
+  name: string;
+  sets: number | null;
+  /** Repetitions (or time) per set, as the coach wrote it. */
+  target: string;
+  rest: number | null;
+}
+
 export interface RunningDownload {
   id: string;
   platform: PlatformId;

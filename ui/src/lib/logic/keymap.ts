@@ -14,6 +14,7 @@ export type PlayerAction =
   | { type: "toggle-play" }
   | { type: "restart" }
   | { type: "toggle-loop" }
+  | { type: "set-done" }
   | { type: "seek"; by: number }
   | { type: "volume"; by: number }
   | { type: "toggle-mute" }
@@ -30,6 +31,7 @@ const PLAIN: Record<string, PlayerAction> = {
   k: { type: "toggle-play" },
   "0": { type: "restart" },
   r: { type: "toggle-loop" },
+  s: { type: "set-done" },
   home: { type: "restart" },
   j: { type: "seek", by: -10 },
   l: { type: "seek", by: 10 },

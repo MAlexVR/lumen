@@ -24,6 +24,7 @@ import type {
   GoldenlifeCourse,
   HarbizLoginOutcome,
   HarbizCourse,
+  ExercisePlan,
   Library,
   LoginOutcome,
   PlatformGroup,
@@ -83,6 +84,8 @@ export interface Api {
   hotmartCourses(): Promise<CourseInfo[]>;
   hotmartDownloadStart(course: string): Promise<string>;
   hotmartDownloadCancel(id: string): Promise<boolean>;
+  /** Sets and repetitions of each exercise of the workout this video belongs to ([] when unknown). */
+  workoutPlan(video: string): Promise<ExercisePlan[]>;
   /** Pause and resume work for a download of any platform: ids are unique across them. */
   downloadPause(id: string): Promise<boolean>;
   downloadResume(id: string): Promise<boolean>;
@@ -287,6 +290,7 @@ function tauriApi(): Api {
     ...createPluralsightCommands(call),
     ...createGoldenlifeCommands(call),
     ...createHarbizCommands(call),
+    workoutPlan: (video) => call("lesson_workout_plan", { video }),
     downloadPause: (id) => call("download_pause", { id }),
     downloadResume: (id) => call("download_resume", { id }),
     updateCheck: () => call("update_check"),
