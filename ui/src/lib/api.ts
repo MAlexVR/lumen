@@ -22,6 +22,8 @@ import type {
   PluralsightCourse,
   GoldenlifeLoginOutcome,
   GoldenlifeCourse,
+  HarbizLoginOutcome,
+  HarbizCourse,
   Library,
   LoginOutcome,
   PlatformGroup,
@@ -111,6 +113,13 @@ export interface Api {
   goldenlifeDownloadStart(course: string): Promise<string>;
   goldenlifeDownloadCancel(id: string): Promise<boolean>;
   goldenlifeDownloadsRunning(): Promise<RunningDownload[]>;
+  harbizLoginCredentials(email: string, password: string): Promise<HarbizLoginOutcome>;
+  harbizSessionStatus(): Promise<{ loggedIn: boolean }>;
+  harbizLogout(): Promise<void>;
+  harbizCourses(): Promise<HarbizCourse[]>;
+  harbizDownloadStart(course: string): Promise<string>;
+  harbizDownloadCancel(id: string): Promise<boolean>;
+  harbizDownloadsRunning(): Promise<RunningDownload[]>;
   // Updates (S12.update): check the releases, settings and the optional read-only token.
   updateCheck(): Promise<UpdateInfo>;
   updateSettings(): Promise<{ includePrereleases: boolean }>;
@@ -189,6 +198,28 @@ export function createGoldenlifeCommands(call: CommandInvoker): Pick<
   };
 }
 
+/** Harbiz Tauri contract: credentials go in once, only the resume token is kept. */
+export function createHarbizCommands(call: CommandInvoker): Pick<
+  Api,
+  | "harbizLoginCredentials"
+  | "harbizSessionStatus"
+  | "harbizLogout"
+  | "harbizCourses"
+  | "harbizDownloadStart"
+  | "harbizDownloadCancel"
+  | "harbizDownloadsRunning"
+> {
+  return {
+    harbizLoginCredentials: (email, password) => call("harbiz_login_credentials", { email, password }),
+    harbizSessionStatus: () => call("harbiz_session_status"),
+    harbizLogout: () => call("harbiz_logout"),
+    harbizCourses: () => call("harbiz_courses"),
+    harbizDownloadStart: (course) => call("harbiz_download_start", { course }),
+    harbizDownloadCancel: (id) => call("harbiz_download_cancel", { id }),
+    harbizDownloadsRunning: () => call("harbiz_downloads_running"),
+  };
+}
+
 function tauriApi(): Api {
   const call = async <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
     const { invoke } = await import("@tauri-apps/api/core");
@@ -252,6 +283,7 @@ function tauriApi(): Api {
     onUdemyProgress: (cb) => listenTo<UdemyProgress>("udemy://diagnose-progress", cb),
     ...createPluralsightCommands(call),
     ...createGoldenlifeCommands(call),
+    ...createHarbizCommands(call),
     updateCheck: () => call("update_check"),
     updateSettings: () => call("update_settings"),
     updateSetIncludePrereleases: (value) => call("update_set_include_prereleases", { value }),

@@ -96,7 +96,7 @@ export function createLibraryMock(params: URLSearchParams, library: Library): Li
         lessonsWithVideo: withVideo,
         bytes: withVideo * 87_400_000 + lessons.length * 120_000,
         bytesApprox: lessons.length > 200,
-        path: `${g.platform === "skool" ? "Skool" : g.platform === "hotmart" ? "Hotmart" : g.platform === "goldenlife" ? "GoldenLife" : "Pluralsight"}/${g.name}${target.course ? `/${target.course}` : ""}`,
+        path: `${g.platform === "skool" ? "Skool" : g.platform === "hotmart" ? "Hotmart" : g.platform === "goldenlife" ? "GoldenLife" : g.platform === "harbiz" ? "Harbiz" : "Pluralsight"}/${g.name}${target.course ? `/${target.course}` : ""}`,
         runningDownload: del === "running",
       };
     },

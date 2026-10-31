@@ -5,7 +5,7 @@ import { mediaUrl, type Api } from "../api";
 import { allGroups } from "../logic/library";
 import type { GroupProgress, Library } from "../types";
 import fixture from "./library.json";
-import { createBus, createGoldenlifeMock, createHotmartMock, createPluralsightMock, createSkoolMock } from "./downloadsMock";
+import { createBus, createGoldenlifeMock, createHarbizMock, createHotmartMock, createPluralsightMock, createSkoolMock } from "./downloadsMock";
 import { createLibraryMock } from "./libraryMock";
 import { createYoutubeMock, youtubeLibrary } from "./youtubeMock";
 import { createUpdateMock } from "./updateMock";
@@ -94,6 +94,30 @@ export function createMockApi(): Api {
       }],
     }],
   });
+  library.platforms.push({
+    id: "harbiz",
+    groups: [{
+      id: "harbiz/Harbiz Training",
+      platform: "harbiz",
+      name: "Harbiz Training",
+      title: "Harbiz Training",
+      seller: null,
+      status: "partial",
+      lessonCount: 2,
+      courses: [{
+        title: "Harbiz Training",
+        index: 1,
+        sections: [{
+          title: "2026-06-02 - Hip mobility",
+          index: 0,
+          lessons: [
+            { key: "harbiz:1-Harbiz Training/0-2026-06-02 - Hip mobility/1-Bodyweight squat", title: "Bodyweight squat", index: 1, video: "Harbiz/Harbiz Training/2026-06-02 - Hip mobility/01. Bodyweight squat.mp4", description: "Harbiz/Harbiz Training/2026-06-02 - Hip mobility/01. Bodyweight squat.html", hasVideo: true, resources: [] },
+            { key: "harbiz:1-Harbiz Training/0-2026-06-02 - Hip mobility/2-Leg swings", title: "Leg swings", index: 2, video: "Harbiz/Harbiz Training/2026-06-02 - Hip mobility/02. Leg swings.mp4", description: null, hasVideo: true, resources: [] },
+          ],
+        }],
+      }],
+    }],
+  });
   const progress = seedProgress(library);
   const params = new URLSearchParams(location.search);
   const bus = createBus();
@@ -148,6 +172,7 @@ export function createMockApi(): Api {
     ...createHotmartMock(params.get("hotmart"), bus),
     ...createPluralsightMock(params.get("pluralsight"), bus),
     ...createGoldenlifeMock(params.get("goldenlife"), bus),
+    ...createHarbizMock(params.get("harbiz"), bus),
     onDownloadProgress: bus.onProgress,
     onDownloadReport: bus.onReport,
   };

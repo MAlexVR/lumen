@@ -58,6 +58,8 @@ for size in 760x520 1024x640 1280x800; do
     --js 'document.querySelector("a.tile[data-id=skool]").click()' --after 1200
   shot plataformas-goldenlife-conectado "$size" --page "index.html?goldenlife=connected" --route "#/downloads/goldenlife"
   shot biblioteca-goldenlife "$size" --route "#/library/goldenlife"
+  shot plataformas-harbiz-conectado "$size" --page "index.html?harbiz=connected" --route "#/downloads/harbiz"
+  shot biblioteca-harbiz "$size" --route "#/library/harbiz"
 done
 # Poster card previews with real video (needs MEDIA_ROOT)
 if [ ${#MEDIA[@]} -gt 0 ]; then
@@ -151,6 +153,7 @@ for size in 760x520 1280x800; do
 done
 shot plataformas-pluralsight 1280x800 --route "#/downloads/pluralsight"
 shot plataformas-goldenlife 1280x800 --route "#/downloads/goldenlife"
+shot plataformas-harbiz 1280x800 --route "#/downloads/harbiz"
 shot reproductor-cine 1280x800 "${MEDIA[@]}" --route "#/watch/$SKOOL_LESSON" --wait 3500 \
   --js 'window.dispatchEvent(new KeyboardEvent("keydown",{key:"t",bubbles:true}))'
 shot reproductor-recursos 1280x800 "${MEDIA[@]}" --route "#/watch/$RES_LESSON" --wait 3500 --js "${SCROLL}m.scrollTop=560"

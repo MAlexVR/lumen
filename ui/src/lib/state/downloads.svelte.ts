@@ -13,6 +13,7 @@ import type {
   PlatformId,
   PluralsightCourse,
   GoldenlifeCourse,
+  HarbizCourse,
   RunningDownload,
   YoutubePreview,
   YoutubeQuality,
@@ -205,6 +206,20 @@ export function createGoldenlifeSessionAdapter(api: Api): SessionAdapter<Goldenl
   };
 }
 
+export const harbiz = new PlatformSession<HarbizCourse>();
+
+export function createHarbizSessionAdapter(api: Api): SessionAdapter<HarbizCourse> {
+  return {
+    platform: "harbiz",
+    status: () => api.harbizSessionStatus(),
+    logout: () => api.harbizLogout(),
+    list: () => api.harbizCourses(),
+    start: (key) => api.harbizDownloadStart(key),
+    cancel: (id) => api.harbizDownloadCancel(id),
+    running: () => api.harbizDownloadsRunning(),
+  };
+}
+
 /** YouTube has no session: resolve a link, pick videos and quality, download.
  * Downloads go through the shared centre keyed by the canonical link. */
 class YoutubeStore {
@@ -365,6 +380,7 @@ export async function initDownloads(api: Api): Promise<void> {
     }),
     pluralsight.init(createPluralsightSessionAdapter(api)),
     goldenlife.init(createGoldenlifeSessionAdapter(api)),
+    harbiz.init(createHarbizSessionAdapter(api)),
     youtube.init(api),
   ]);
 }

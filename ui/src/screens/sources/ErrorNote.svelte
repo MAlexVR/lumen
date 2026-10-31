@@ -10,12 +10,16 @@
   const PS_CODES = ["not_logged_in", "session_expired", "invalid_cookies", "already_running", "no_library", "login_cancelled", "login_timeout", "network", "invalid_token", "internal"];
   // Golden Life signs in with email and password, so it words its own session errors too.
   const GL_CODES = ["not_logged_in", "session_expired", "invalid_credentials", "already_running", "no_library", "network", "internal"];
+  // Harbiz signs in the same way and words its errors for itself.
+  const HB_CODES = GL_CODES;
   const prefix = $derived(
     platform === "pluralsight" && PS_CODES.includes(error.code)
       ? "ps_err"
       : platform === "goldenlife" && GL_CODES.includes(error.code)
         ? "gl_err"
-        : "err",
+        : platform === "harbiz" && HB_CODES.includes(error.code)
+          ? "hb_err"
+          : "err",
   );
 </script>
 

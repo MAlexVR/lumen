@@ -35,7 +35,7 @@ export interface Course {
   sections: Section[];
 }
 
-export type PlatformId = "skool" | "hotmart" | "pluralsight" | "goldenlife" | "youtube";
+export type PlatformId = "skool" | "hotmart" | "pluralsight" | "goldenlife" | "harbiz" | "youtube";
 
 /** One downloaded group. Skool: a community with courses; Hotmart: one
  * purchased course (exactly one Course whose sections are its modules). */
@@ -160,6 +160,25 @@ export interface GoldenlifeLoginOutcome {
   courses: GoldenlifeCourse[];
 }
 
+/** The Harbiz agenda as one course: what is on it and what is already local. */
+export interface HarbizCourse {
+  id: string;
+  title: string;
+  folder: string;
+  workouts: number;
+  downloaded: number;
+  /** Workouts on the agenda that are not fully in the library yet. */
+  pending: number;
+  firstDate: string | null;
+  lastDate: string | null;
+  photoCheckins: number;
+}
+
+export interface HarbizLoginOutcome {
+  loggedIn: boolean;
+  courses: HarbizCourse[];
+}
+
 export interface RunningDownload {
   id: string;
   platform: PlatformId;
@@ -213,7 +232,7 @@ export interface RootInfo {
 }
 
 export interface LibrarySummary {
-  platforms: ("Skool" | "Hotmart" | "Pluralsight" | "GoldenLife")[];
+  platforms: ("Skool" | "Hotmart" | "Pluralsight" | "GoldenLife" | "Harbiz")[];
   hasLibrary: boolean;
 }
 

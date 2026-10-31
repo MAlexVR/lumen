@@ -15,11 +15,11 @@
   }
 
   /** Directory of each platform under the library root. */
-  const FOLDER_ROOT = { hotmart: "Hotmart", pluralsight: "Pluralsight", goldenlife: "GoldenLife" } as const;
+  const FOLDER_ROOT = { hotmart: "Hotmart", pluralsight: "Pluralsight", goldenlife: "GoldenLife", harbiz: "Harbiz" } as const;
 
   let { session, platform, items, heading, emptyText }: {
     session: DownloadItemSession;
-    platform: "hotmart" | "pluralsight" | "goldenlife";
+    platform: "hotmart" | "pluralsight" | "goldenlife" | "harbiz";
     items: CourseListItem[];
     heading: string;
     emptyText: string;

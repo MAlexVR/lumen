@@ -9,6 +9,7 @@
   import PlatformSoon from "./platforms/PlatformSoon.svelte";
   import PlatformStage from "./platforms/PlatformStage.svelte";
   import GoldenlifeFlow from "./sources/GoldenlifeFlow.svelte";
+  import HarbizFlow from "./sources/HarbizFlow.svelte";
   import HotmartFlow from "./sources/HotmartFlow.svelte";
   import PluralsightFlow from "./sources/PluralsightFlow.svelte";
   import SkoolFlow from "./sources/SkoolFlow.svelte";
@@ -32,16 +33,16 @@
     </a>
   {/if}
 
-  {#if platform?.status === "available" && (platform.id === "skool" || platform.id === "hotmart" || platform.id === "pluralsight" || platform.id === "goldenlife" || platform.id === "youtube" || platform.id === "udemy")}
+  {#if platform?.status === "available" && (platform.id === "skool" || platform.id === "hotmart" || platform.id === "pluralsight" || platform.id === "goldenlife" || platform.id === "harbiz" || platform.id === "youtube" || platform.id === "udemy")}
     <header class="head flow-head">
       <span class="logo"><PlatformStage {platform} alt={t("pf_logo", { name: platform.name })} /></span>
       <div>
         <span class="eyebrow">{t("downloads_title")}</span>
         <h1>{platform.name}</h1>
-        <p class="lede">{t(platform.id === "skool" ? "dl_lede" : platform.id === "hotmart" ? "hm_lede" : platform.id === "pluralsight" ? "ps_lede" : platform.id === "goldenlife" ? "gl_lede" : platform.id === "udemy" ? "ud_lede" : "yt_lede")}</p>
+        <p class="lede">{t(platform.id === "skool" ? "dl_lede" : platform.id === "hotmart" ? "hm_lede" : platform.id === "pluralsight" ? "ps_lede" : platform.id === "goldenlife" ? "gl_lede" : platform.id === "harbiz" ? "hb_lede" : platform.id === "udemy" ? "ud_lede" : "yt_lede")}</p>
       </div>
     </header>
-    {#if platform.id === "skool"}<SkoolFlow />{:else if platform.id === "hotmart"}<HotmartFlow />{:else if platform.id === "pluralsight"}<PluralsightFlow />{:else if platform.id === "goldenlife"}<GoldenlifeFlow />{:else if platform.id === "udemy"}<UdemyFlow />{:else}<YoutubeFlow />{/if}
+    {#if platform.id === "skool"}<SkoolFlow />{:else if platform.id === "hotmart"}<HotmartFlow />{:else if platform.id === "pluralsight"}<PluralsightFlow />{:else if platform.id === "goldenlife"}<GoldenlifeFlow />{:else if platform.id === "harbiz"}<HarbizFlow />{:else if platform.id === "udemy"}<UdemyFlow />{:else}<YoutubeFlow />{/if}
   {:else if platform}
     <PlatformSoon {platform} />
   {:else}

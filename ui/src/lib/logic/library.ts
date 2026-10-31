@@ -5,10 +5,10 @@ import { continueTarget, flattenGroup, type ContinueTarget } from "./progress";
 import { normalize } from "./search";
 import { stripEmoji } from "./title";
 
-const PLATFORM_ORDER: readonly PlatformId[] = ["skool", "hotmart", "pluralsight", "goldenlife", "youtube"];
+const PLATFORM_ORDER: readonly PlatformId[] = ["skool", "hotmart", "pluralsight", "goldenlife", "harbiz", "youtube"];
 
 /** Platforms whose groups are a single course (opened straight into it). */
-const SINGLE_COURSE: readonly PlatformId[] = ["hotmart", "pluralsight", "goldenlife", "youtube"];
+const SINGLE_COURSE: readonly PlatformId[] = ["hotmart", "pluralsight", "goldenlife", "harbiz", "youtube"];
 
 export function allGroups(library: Library): Group[] {
   if (!Array.isArray(library.platforms)) return library.groups ?? [];

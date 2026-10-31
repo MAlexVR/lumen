@@ -12,6 +12,7 @@ import type {
   PlatformId,
   PluralsightCourse,
   GoldenlifeCourse,
+  HarbizCourse,
   ProgressEvent,
   ReportEvent,
   RunningDownload,
@@ -395,5 +396,55 @@ export function createGoldenlifeMock(preset: string | null, bus: Bus): Goldenlif
     },
     goldenlifeDownloadCancel: async (id) => bus.cancel(id, "goldenlife"),
     goldenlifeDownloadsRunning: async () => bus.runningOf("goldenlife"),
+  };
+}
+
+// Harbiz --------------------------------------------------------------------
+
+const HARBIZ_COURSES: HarbizCourse[] = [
+  { id: "harbiz", title: "Harbiz Training", folder: "Harbiz Training", workouts: 66, downloaded: 62, pending: 4, firstDate: "2026-06-01", lastDate: "2026-10-31", photoCheckins: 5 },
+];
+
+type HarbizApi = Pick<
+  Api,
+  | "harbizLoginCredentials"
+  | "harbizSessionStatus"
+  | "harbizLogout"
+  | "harbizCourses"
+  | "harbizDownloadStart"
+  | "harbizDownloadCancel"
+  | "harbizDownloadsRunning"
+>;
+
+export function createHarbizMock(preset: string | null, bus: Bus): HarbizApi {
+  let loggedIn = preset !== null;
+  const courseName = (id: string) => HARBIZ_COURSES.find((course) => course.id === id)?.title ?? id;
+  if (preset === "downloading") bus.simulate("harbiz", "harbiz", courseName("harbiz"));
+  if (preset && REPORT_PRESETS[preset]) bus.finished("harbiz", "harbiz", courseName("harbiz"), REPORT_PRESETS[preset]);
+
+  return {
+    harbizSessionStatus: async () => ({ loggedIn }),
+    // The preview accepts any password except the literal "wrong".
+    harbizLoginCredentials: async (_email, password) => {
+      if (password === "wrong") throw err("invalid_credentials", "wrong email or password");
+      loggedIn = true;
+      return { loggedIn, courses: structuredClone(HARBIZ_COURSES) };
+    },
+    harbizLogout: async () => {
+      loggedIn = false;
+    },
+    harbizCourses: async () => {
+      if (!loggedIn) throw err("not_logged_in", "not logged in");
+      return structuredClone(HARBIZ_COURSES);
+    },
+    harbizDownloadStart: async (course) => {
+      if (!loggedIn) throw err("not_logged_in", "not logged in");
+      if (preset === "nolibrary") throw err("no_library", "choose a library folder first");
+      if (!HARBIZ_COURSES.some((item) => item.id === course)) throw err("internal", "course cannot be downloaded");
+      if (bus.isRunning("harbiz", course)) throw err("already_running", "already running");
+      return bus.simulate("harbiz", course, courseName(course));
+    },
+    harbizDownloadCancel: async (id) => bus.cancel(id, "harbiz"),
+    harbizDownloadsRunning: async () => bus.runningOf("harbiz"),
   };
 }
