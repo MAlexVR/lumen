@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ProgressEvent, ReportEvent } from "../types";
-import { downloadFor, initialDownloads, overallPercent, reduceDownloads, type DownloadsState } from "./downloads";
+import { downloadFor, finishedALesson, initialDownloads, overallPercent, reduceDownloads, type DownloadsState } from "./downloads";
 
 const progress = (p: Partial<ProgressEvent> = {}): ProgressEvent => ({
   id: "dl-1",
@@ -155,5 +155,26 @@ describe("selectors", () => {
     expect(overallPercent(s["dl-1"])).toBe(25);
     expect(overallPercent({ ...s["dl-1"], total: 0 })).toBe(0);
     expect(overallPercent({ ...s["dl-1"], completed: 10, percent: 100 })).toBe(100);
+  });
+});
+
+describe("finishedALesson", () => {
+  it("is true when an event reports more finished lessons than the state knew", () => {
+    const s = run({ type: "started", id: "dl-1", platform: "skool", key: "a" }, { type: "progress", event: progress({ id: "dl-1", completed: 2 }) });
+    expect(finishedALesson(s, progress({ id: "dl-1", completed: 3 }))).toBe(true);
+  });
+
+  it("is false for progress inside the same lesson and for stale events", () => {
+    const s = run({ type: "started", id: "dl-1", platform: "skool", key: "a" }, { type: "progress", event: progress({ id: "dl-1", completed: 2 }) });
+    expect(finishedALesson(s, progress({ id: "dl-1", completed: 2, percent: 80 }))).toBe(false);
+    expect(finishedALesson(s, progress({ id: "dl-1", completed: 1 }))).toBe(false);
+  });
+
+  it("is false for the first event of a download that has finished nothing", () => {
+    expect(finishedALesson(initialDownloads, progress({ id: "dl-9", completed: 0 }))).toBe(false);
+  });
+
+  it("is true for an unknown download that already finished lessons (the app was reloaded mid-run)", () => {
+    expect(finishedALesson(initialDownloads, progress({ id: "dl-9", completed: 37 }))).toBe(true);
   });
 });

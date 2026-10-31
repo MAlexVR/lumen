@@ -112,6 +112,11 @@ function pick(prev: DownloadEntry | undefined): Partial<DownloadEntry> {
   return prev && prev.status === "running" ? { completed: prev.completed, total: prev.total, name: prev.name } : {};
 }
 
+/** True when `event` reports more finished lessons than the state knew: a class just landed on disk. */
+export function finishedALesson(state: DownloadsState, event: ProgressEvent): boolean {
+  return event.completed > (state[event.id]?.completed ?? 0);
+}
+
 /** Latest download for an item of a platform, preferring a running one. */
 export function downloadFor(
   state: DownloadsState,
