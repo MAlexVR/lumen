@@ -18,8 +18,8 @@ Branch: `local/harbiz` (never pushed, never merged to main). Delivery: single lo
 - T4 (S1) CoursePlatform impl + course listing with local/pending counts: inline, done (RED 7 failed -> GREEN 60 passed), commit 0fb3ade
 - T5 (S6) lumen-core LibraryPlatform::Harbiz + scanner + delete target: inline, done (RED compile error + non-exhaustive match -> GREEN core 79, library_delete 14), commit dfbd304
 - T6 (S5) Tauri service + commands: inline, done (RED 7 failed -> GREEN lumen 196 passed, clippy clean), commit eca3378
-- T7 (S1,S3) UI flow (agenda card shows workouts / new to download / date range; Update re-runs incrementally), i18n es+en, mock, screenshots reviewed at 1280x800 and 760x520: inline, done (RED 8 failed -> GREEN vitest 357 passed, svelte-check 0 errors), commit TBD
-- T8 (S2) local install from the branch: inline, pending
+- T7 (S1,S3) UI flow (agenda card shows workouts / new to download / date range; Update re-runs incrementally), i18n es+en, mock, screenshots reviewed at 1280x800 and 760x520: inline, done (RED 8 failed -> GREEN vitest 357 passed, svelte-check 0 errors), commit c0178d8
+- T8 (S2) local install from the branch: inline, done (release build from repo root; installed ~/.local/bin/lumen, previous binary kept as lumen.prev; binary contains harbiz commands; real window/download NOT exercised), commit TBD
 
 ## Log
 - L1 (2026-10-30): "quiero que le agregues la funcionalidad a lumen para harbiz con ODD esta funcionalidad no la quiero en el repo solo en local, tambien quiero tener la opción de descargar los entrenamientos de fechas actualizadas que hayan sido programadas y que no tenga de forma local"
