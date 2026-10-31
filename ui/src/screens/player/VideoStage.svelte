@@ -20,8 +20,11 @@
     onnext: () => void;
     onprev: () => void;
     ontheatre: () => void;
+    /** Repeat the video until the viewer moves on. */
+    loop: boolean;
+    onloop: () => void;
   }
-  let { src, resumeAt, autoplay, theatre, onsave, onwatched, onended, onerror, onnext, onprev, ontheatre }: Props =
+  let { src, resumeAt, autoplay, theatre, onsave, onwatched, onended, onerror, onnext, onprev, ontheatre, loop, onloop }: Props =
     $props();
 
   let stage: HTMLElement | undefined = $state();
@@ -151,6 +154,8 @@
         return togglePlay();
       case "restart":
         return restart();
+      case "toggle-loop":
+        return onloop();
       case "seek":
         return seekBy(action.by);
       case "volume":
@@ -227,6 +232,7 @@
   <video
     bind:this={video}
     {src}
+    {loop}
     preload="metadata"
     playsinline
     onloadedmetadata={onMeta}
@@ -305,6 +311,17 @@
       </span>
 
       <span class="spacer"></span>
+
+      <button
+        class="icon-btn"
+        type="button"
+        aria-pressed={loop}
+        onclick={onloop}
+        aria-label={t("loop")}
+        title="{t('loop')} (R)"
+      >
+        <Icon name="loop" />
+      </button>
 
       <div class="speed">
         <button

@@ -13,6 +13,7 @@ export interface KeyInput {
 export type PlayerAction =
   | { type: "toggle-play" }
   | { type: "restart" }
+  | { type: "toggle-loop" }
   | { type: "seek"; by: number }
   | { type: "volume"; by: number }
   | { type: "toggle-mute" }
@@ -28,6 +29,7 @@ const PLAIN: Record<string, PlayerAction> = {
   " ": { type: "toggle-play" },
   k: { type: "toggle-play" },
   "0": { type: "restart" },
+  r: { type: "toggle-loop" },
   home: { type: "restart" },
   j: { type: "seek", by: -10 },
   l: { type: "seek", by: 10 },

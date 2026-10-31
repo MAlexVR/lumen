@@ -3,6 +3,7 @@
   import { untrack } from "svelte";
   import Icon from "../lib/design/Icon.svelte";
   import { t } from "../lib/i18n/index.svelte";
+  import { lessonVideos, stepVideo } from "../lib/logic/lessonVideos";
   import { flattenCourse, positionOf } from "../lib/logic/progress";
   import { wording } from "../lib/logic/videos";
   import { app } from "../lib/state/app.svelte";
@@ -43,6 +44,8 @@
 
   let theatre = $state(pref("lumen.theatre", false));
   let autoplayNext = $state(pref("lumen.autoplayNext", true));
+  /** Repeat the video until the viewer moves on; kept across videos and sessions. */
+  let loop = $state(pref("lumen.loop", false));
   let drawer = $state(false);
   let videoError = $state<number | null>(null);
   /** Lesson reached through autoplay; only that one starts playing by itself. */
@@ -59,7 +62,8 @@
     if (!item) return;
     untrack(() => {
       videoError = null;
-      altVideo = null;
+      videoIndex = 0;
+      stepped = false;
       reading = null;
       void app.setLast(group, key);
     });
@@ -76,6 +80,23 @@
     store("lumen.theatre", theatre);
   }
 
+  function toggleLoop() {
+    loop = !loop;
+    store("lumen.loop", loop);
+  }
+
+  /** Next/previous video of this lesson first, then the neighbouring lesson. */
+  function step(dir: 1 | -1) {
+    const move = stepVideo(videos.length, videoIndex, dir);
+    if (move.kind === "video") {
+      videoIndex = move.index;
+      stepped = true;
+      videoError = null;
+    } else {
+      go(dir > 0 ? next : prev);
+    }
+  }
+
   function toggleAutoplay() {
     autoplayNext = !autoplayNext;
     store("lumen.autoplayNext", autoplayNext);
@@ -83,15 +104,26 @@
 
   function onEnded() {
     if (!autoplayNext) return;
+    const move = stepVideo(videos.length, videoIndex, 1);
+    if (move.kind === "video") {
+      videoIndex = move.index;
+      stepped = true;
+      return;
+    }
     const upcoming = flat.slice(index + 1).find((f) => f.lesson.hasVideo);
     go(upcoming, true);
   }
 
-  /** Additional video of this lesson playing instead of the main one. */
-  let altVideo = $state<string | null>(null);
+  /** Which of the lesson's videos is playing (a workout has one per exercise). */
+  let videoIndex = $state(0);
+  /** The viewer moved between this lesson's videos, so the new one starts by itself. */
+  let stepped = $state(false);
   /** Supplementary reading shown inline. */
   let reading = $state<string | null>(null);
-  const extraVideos = $derived(item ? item.lesson.resources.filter((r) => r.kind === "video") : []);
+  const videos = $derived(item ? lessonVideos(item.lesson) : []);
+  const current = $derived(videos[videoIndex]);
+  const canPrev = $derived(videoIndex > 0 || !!prev);
+  const canNext = $derived(videoIndex < videos.length - 1 || !!next);
   const files = $derived(item ? item.lesson.resources.filter((r) => r.kind !== "video") : []);
 
   function openResource(r: Resource) {
@@ -126,23 +158,25 @@
       </div>
 
       <div class="screen">
-        {#if lesson.hasVideo && lesson.video}
-          {#key `${lessonKey}|${altVideo ?? ""}`}
+        {#if lesson.hasVideo && current}
+          {#key `${lessonKey}|${videoIndex}`}
             <VideoStage
-              src={app.mediaUrl(altVideo ?? lesson.video)}
-              resumeAt={altVideo ? 0 : resumeAt}
-              autoplay={autoKey === lessonKey || altVideo !== null}
+              src={app.mediaUrl(current.path)}
+              resumeAt={videoIndex === 0 ? resumeAt : 0}
+              autoplay={autoKey === lessonKey || stepped}
               {theatre}
+              {loop}
+              onloop={toggleLoop}
               onsave={(s) => {
-                if (!altVideo) void app.savePosition(group, lessonKey, s);
+                if (videoIndex === 0) void app.savePosition(group, lessonKey, s);
               }}
               onwatched={() => {
-                if (!altVideo) void app.setWatched(group, lessonKey, true);
+                if (videoIndex === videos.length - 1) void app.setWatched(group, lessonKey, true);
               }}
               onended={onEnded}
               onerror={(code) => (videoError = code)}
-              onnext={() => go(next)}
-              onprev={() => go(prev)}
+              onnext={() => step(1)}
+              onprev={() => step(-1)}
               ontheatre={toggleTheatre}
             />
           {/key}
@@ -153,7 +187,7 @@
                 <p class="strong">{t("video_error")}</p>
                 <p class="muted num">{t("error_code", { code: videoError })}</p>
               </div>
-              <button type="button" class="btn btn-quiet" onclick={() => lesson.video && app.api?.openPath(lesson.video)}>
+              <button type="button" class="btn btn-quiet" onclick={() => current && app.api?.openPath(current.path)}>
                 <Icon name="external" size={16} />{t("open_system_player")}
               </button>
             </div>
@@ -172,14 +206,21 @@
           <header>
             <span class="eyebrow num">{t(wording(app.group(group)?.platform ?? "").of, { n: position, total: courseFlat.length })}</span>
             <h1 tabindex="-1" title={displayTitle(lesson.title)}>{displayTitle(lesson.title)}</h1>
+            {#if videos.length > 1 && current}
+              <p class="current num">
+                <span>{t("video_n_of", { n: videoIndex + 1, total: videos.length })}</span>
+                <span aria-hidden="true">·</span>
+                <span class="cname">{current.title}</span>
+              </p>
+            {/if}
           </header>
 
           <div class="actions">
             <button
               type="button"
               class="btn btn-quiet"
-              disabled={!prev}
-              onclick={() => go(prev)}
+              disabled={!canPrev}
+              onclick={() => step(-1)}
               title="{t('prev')} (P)"
               aria-label={t("prev")}
             >
@@ -198,8 +239,8 @@
             <button
               type="button"
               class="btn btn-quiet"
-              disabled={!next}
-              onclick={() => go(next)}
+              disabled={!canNext}
+              onclick={() => step(1)}
               title="{t('next')} (N)"
               aria-label={t("next")}
             >
@@ -221,30 +262,8 @@
           </div>
         </div>
 
-        {#if extraVideos.length && lesson.video}
-          <section class="resources" aria-labelledby="vid-h">
-            <h2 id="vid-h" class="eyebrow">{t("res_video")}</h2>
-            <ul>
-              {#each [{ path: lesson.video, name: t("res_main_video"), main: true }, ...extraVideos.map((v, i) => ({ path: v.path, name: `${t("res_video")} ${i + 1}`, main: false }))] as v (v.path)}
-                {@const playing = (altVideo ?? lesson.video) === v.path}
-                <li>
-                  <button
-                    type="button"
-                    aria-pressed={playing}
-                    onclick={() => (altVideo = v.main ? null : v.path)}
-                  >
-                    <Icon name="play" size={16} />
-                    <span class="rname">{v.name}</span>
-                    <span class="rkind">{playing ? t("res_playing") : ""}</span>
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          </section>
-        {/if}
-
-        {#if lesson.description}
-          <Description path={lesson.description} />
+        {#if current?.note ?? lesson.description}
+          <Description path={(current?.note ?? lesson.description) as string} />
         {/if}
 
         {#if reading}
@@ -650,5 +669,16 @@
     .info {
       padding: var(--s-6) var(--s-4) var(--s-16);
     }
+  }
+  .current {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    margin-top: var(--s-2);
+    color: var(--lumen);
+    font-size: var(--fs-md);
+  }
+  .cname {
+    color: var(--text);
   }
 </style>

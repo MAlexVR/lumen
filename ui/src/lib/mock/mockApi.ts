@@ -111,7 +111,10 @@ export function createMockApi(): Api {
           title: "2026-06",
           index: 0,
           lessons: [
-            { key: "harbiz:1-Harbiz Training/0-2026-06/0-2026-06-02 - Hip mobility", title: "2026-06-02 - Hip mobility", index: 0, video: "Harbiz/Harbiz Training/2026-06/2026-06-02 - Hip mobility/01. Bodyweight squat.mp4", description: "Harbiz/Harbiz Training/2026-06/2026-06-02 - Hip mobility/Description.html", hasVideo: true, resources: [] },
+            { key: "harbiz:1-Harbiz Training/0-2026-06/0-2026-06-02 - Hip mobility", title: "2026-06-02 - Hip mobility", index: 0, video: "Harbiz/Harbiz Training/2026-06/2026-06-02 - Hip mobility/01. Bodyweight squat.mp4", description: "Harbiz/Harbiz Training/2026-06/2026-06-02 - Hip mobility/Description.html", videoNote: "Harbiz/Harbiz Training/2026-06/2026-06-02 - Hip mobility/01. Bodyweight squat.html", hasVideo: true, resources: [
+              { name: "03. Walking lunge.mp4", path: "Harbiz/Harbiz Training/2026-06/2026-06-02 - Hip mobility/03. Walking lunge.mp4", url: null, kind: "video", description: "Harbiz/Harbiz Training/2026-06/2026-06-02 - Hip mobility/03. Walking lunge.html" },
+              { name: "04. Plank hold.mp4", path: "Harbiz/Harbiz Training/2026-06/2026-06-02 - Hip mobility/04. Plank hold.mp4", url: null, kind: "video", description: "Harbiz/Harbiz Training/2026-06/2026-06-02 - Hip mobility/04. Plank hold.html" },
+            ] },
             { key: "harbiz:1-Harbiz Training/0-2026-06/0-2026-06-05 - Leg swings", title: "2026-06-05 - Leg swings", index: 0, video: "Harbiz/Harbiz Training/2026-06/2026-06-05 - Leg swings/01. Leg swings.mp4", description: null, hasVideo: true, resources: [] },
           ],
         }],
