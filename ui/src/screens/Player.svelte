@@ -5,6 +5,7 @@
   import { t } from "../lib/i18n/index.svelte";
   import { exerciseDisplayName, planFor } from "../lib/logic/exercisePlan";
   import { lessonVideos, stepVideo } from "../lib/logic/lessonVideos";
+  import { decodeMedia, encodeMedia } from "../lib/logic/mediaId";
   import { flattenCourse, positionOf } from "../lib/logic/progress";
   import { wording } from "../lib/logic/videos";
   import { completeSet, pauseTimer, resumeTimer, setProgress, shouldHold, toggleTimer, undoSet } from "../lib/logic/workoutSession";
@@ -210,9 +211,10 @@
           />
         {/snippet}
         {#if lesson.hasVideo && current}
-          {#key `${lessonKey}|${videoIndex}`}
-            <VideoStage
+          <!-- One stage for every video of the session: recreating it would leave fullscreen. -->
+          <VideoStage
               src={app.mediaUrl(current.path)}
+              mediaId={encodeMedia(lessonKey, videoIndex, videos.length)}
               resumeAt={videoIndex === 0 ? resumeAt : 0}
               autoplay={autoKey === lessonKey || stepped}
               {theatre}
@@ -223,11 +225,13 @@
               onplaying={startWorkout}
               onpaused={pauseWorkout}
               hold={shouldHold(progress)}
-              onsave={(s) => {
-                if (videoIndex === 0) void app.savePosition(group, lessonKey, s);
+              onsave={(s, id) => {
+                const media = decodeMedia(id);
+                if (media && media.index === 0) void app.savePosition(group, media.key, s);
               }}
-              onwatched={() => {
-                if (videoIndex === videos.length - 1) void app.setWatched(group, lessonKey, true);
+              onwatched={(id) => {
+                const media = decodeMedia(id);
+                if (media && media.index === media.count - 1) void app.setWatched(group, media.key, true);
               }}
               onended={onEnded}
               onerror={(code) => (videoError = code)}
@@ -235,7 +239,6 @@
               onprev={() => step(-1)}
               ontheatre={toggleTheatre}
             />
-          {/key}
           {#if videoError !== null}
             <div class="notice error" role="alert">
               <Icon name="alert" size={22} />

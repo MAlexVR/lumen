@@ -1,6 +1,6 @@
 <script lang="ts">
   // Video on black with custom controls, keyboard map and resume handling.
-  import { onDestroy, type Snippet } from "svelte";
+  import { onDestroy, untrack, type Snippet } from "svelte";
   import Icon from "../../lib/design/Icon.svelte";
   import { t } from "../../lib/i18n/index.svelte";
   import { afterEnd } from "../../lib/logic/loop";
@@ -10,12 +10,14 @@
 
   interface Props {
     src: string;
+    /** Identity of `src` (lesson, video index); reported back with every save so a late save is never filed under the next video. */
+    mediaId: string;
     /** Saved position for this lesson (seconds). */
     resumeAt: number;
     autoplay: boolean;
     theatre: boolean;
-    onsave: (seconds: number) => void;
-    onwatched: () => void;
+    onsave: (seconds: number, mediaId: string) => void;
+    onwatched: (mediaId: string) => void;
     onended: () => void;
     onerror: (code: number) => void;
     onnext: () => void;
@@ -35,7 +37,7 @@
     /** Replay at the end instead of moving on, like repeat but decided by the lesson. */
     hold?: boolean;
   }
-  let { src, resumeAt, autoplay, theatre, onsave, onwatched, onended, onerror, onnext, onprev, ontheatre, loop, onloop, overlay, onset, onplaying, onpaused, hold = false }: Props =
+  let { src, mediaId, resumeAt, autoplay, theatre, onsave, onwatched, onended, onerror, onnext, onprev, ontheatre, loop, onloop, overlay, onset, onplaying, onpaused, hold = false }: Props =
     $props();
 
   let stage: HTMLElement | undefined = $state();
@@ -55,6 +57,8 @@
   // Resume is applied once metadata is known; until then nothing is saved so
   // a fresh element cannot overwrite the stored position with 0.
   let ready = $state(false);
+  /** The `mediaId` of the video actually loaded; what saves are filed under. */
+  let loadedId = '';
   let lastSave = 0;
   let watchedSent = false;
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -66,11 +70,35 @@
     const now = Date.now();
     if (!shouldSavePosition(now, lastSave, force)) return;
     lastSave = now;
-    onsave(video.currentTime);
+    onsave(video.currentTime, loadedId);
   }
+
+  // The element is reused when the player moves to another video, so that
+  // fullscreen survives the change. The old video's position is saved before
+  // the new source replaces it, then the per-video state starts over.
+  let lastSrc: string | undefined;
+  $effect.pre(() => {
+    const next = src;
+    if (lastSrc !== undefined && next !== lastSrc) untrack(() => save(true));
+    lastSrc = next;
+  });
+  $effect(() => {
+    void src;
+    untrack(() => {
+      ready = false;
+      watchedSent = false;
+      loadedId = '';
+      current = 0;
+      duration = 0;
+      buffered = 0;
+      paused = true;
+      speed = 1;
+    });
+  });
 
   function onMeta() {
     if (!video) return;
+    loadedId = mediaId;
     duration = video.duration;
     const seek = resumeSeek(resumeAt, video.duration);
     if (seek) video.currentTime = seek;
@@ -86,7 +114,7 @@
     save(false);
     if (!watchedSent && duration && current / duration > 0.9) {
       watchedSent = true;
-      onwatched();
+      onwatched(loadedId);
     }
   }
 
@@ -267,7 +295,7 @@
     onratechange={() => (speed = video?.playbackRate ?? 1)}
     onended={() => {
       save(true);
-      if (!watchedSent) onwatched();
+      if (!watchedSent) onwatched(loadedId);
       watchedSent = true;
       if (afterEnd(loop || hold) === "replay" && video) {
         // Plays again only after the real end, so the whole clip is always shown.

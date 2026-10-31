@@ -3,6 +3,12 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.6.3] - 2026-10-31
+
+### Fixed
+- Moving to the next exercise (or the next lesson) while in full screen no longer leaves full screen. The player used to be rebuilt for every video, and the browser exits full screen when its element goes away; now the same player switches video in place. Volume is kept between videos too.
+- Because the player is reused, every position saved or "watched" mark is filed under the video that was really playing, not the one the screen has moved to.
+
 ## [0.6.2] - 2026-10-31
 
 ### Changed
