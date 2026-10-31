@@ -4,7 +4,7 @@
   import { tick } from "svelte";
   import Icon from "../../lib/design/Icon.svelte";
   import { t } from "../../lib/i18n/index.svelte";
-  import { courseStats } from "../../lib/logic/progress";
+  import { courseStats, sectionKey, sectionNumber } from "../../lib/logic/progress";
   import ItemMenu from "../library/ItemMenu.svelte";
   import { deletion } from "../../lib/state/deletion.svelte";
   import { wording } from "../../lib/logic/videos";
@@ -46,10 +46,10 @@
     >{loose ? t("videos_title") : displayTitle(course.title)}</a>
     <span class="count num">{t(wd.countOf, { done: stats.done, total: stats.total })} · {stats.pct}%</span>
   </header>
-  {#each course.sections as section (section.index)}
+  {#each course.sections as section, position (sectionKey(section))}
     <section aria-label={displayTitle(section.title)}>
       {#if course.sections.length > 1}
-        <h3><span class="num idx">{String(section.index).padStart(2, "0")}</span>{displayTitle(section.title)}</h3>
+        <h3><span class="num idx">{String(sectionNumber(section, position)).padStart(2, "0")}</span>{displayTitle(section.title)}</h3>
       {/if}
       <ol>
         {#each section.lessons as lesson (lesson.key)}

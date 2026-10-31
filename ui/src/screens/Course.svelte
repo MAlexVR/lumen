@@ -9,7 +9,7 @@
   import Playlist from "./Playlist.svelte";
   import ModuleRow from "./course/ModuleRow.svelte";
   import { t, tn } from "../lib/i18n/index.svelte";
-  import { courseStats, flattenCourse, nextUnwatched } from "../lib/logic/progress";
+  import { courseStats, flattenCourse, nextUnwatched, sectionKey } from "../lib/logic/progress";
   import { app } from "../lib/state/app.svelte";
   import { href } from "../lib/state/router.svelte";
 
@@ -88,8 +88,8 @@
     </header>
 
     <ol class="modules">
-      {#each course.sections as section (section.index)}
-        <ModuleRow {group} {section} {watched} defaultOpen={course.sections.length === 1} />
+      {#each course.sections as section, position (sectionKey(section))}
+        <ModuleRow {group} {section} {position} {watched} defaultOpen={course.sections.length === 1} />
       {/each}
     </ol>
   </div>

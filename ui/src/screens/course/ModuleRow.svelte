@@ -5,17 +5,19 @@
   import ItemMenu from "../library/ItemMenu.svelte";
   import { deletion } from "../../lib/state/deletion.svelte";
   import { t } from "../../lib/i18n/index.svelte";
-  import { flattenCourse, nextUnwatched, sectionStats } from "../../lib/logic/progress";
+  import { flattenCourse, nextUnwatched, sectionNumber, sectionStats } from "../../lib/logic/progress";
   import { href, navigate } from "../../lib/state/router.svelte";
   import type { Section } from "../../lib/types";
 
   interface Props {
     group: string;
     section: Section;
+    /** 0-based place of the module in the course, the number shown when the folder has none. */
+    position: number;
     watched: ReadonlySet<string>;
     defaultOpen?: boolean;
   }
-  let { group, section, watched, defaultOpen = false }: Props = $props();
+  let { group, section, position, watched, defaultOpen = false }: Props = $props();
   // svelte-ignore state_referenced_locally
   let open = $state(defaultOpen);
   const uid = $props.id();
@@ -42,7 +44,7 @@
 <li class="module" data-state={stats.state}>
   <div class="row">
     <button type="button" class="open" onclick={openNext} aria-label="{displayTitle(section.title)}, {info}">
-      <span class="idx num" aria-hidden="true">{String(section.index).padStart(2, "0")}</span>
+      <span class="idx num" aria-hidden="true">{String(sectionNumber(section, position)).padStart(2, "0")}</span>
       <span class="body">
         <span class="title">{displayTitle(section.title)}</span>
         <span class="info num">

@@ -33,6 +33,12 @@ export function stats(lessons: readonly Lesson[], watched: ReadonlySet<string>):
   return { total, done, pct, state, noVideo: lessons.filter((l) => !l.hasVideo).length };
 }
 
+/** Identity of a module inside a course. The index alone is not unique: unnumbered folders all read 0. */
+export const sectionKey = (section: Section): string => `${section.index}:${section.title}`;
+
+/** Number shown for a module: its own, or its position when the folder is unnumbered. */
+export const sectionNumber = (section: Section, position: number): number => (section.index > 0 ? section.index : position + 1);
+
 export const sectionStats = (section: Section, watched: ReadonlySet<string>): Stats =>
   stats(section.lessons, watched);
 

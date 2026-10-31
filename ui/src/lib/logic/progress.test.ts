@@ -8,8 +8,7 @@ import {
   flattenGroup,
   nextUnwatched,
   sectionStats,
-  stats,
-} from "./progress";
+  stats, sectionKey, sectionNumber } from "./progress";
 
 const lesson = (key: string, hasVideo = true): Lesson => ({
   key,
@@ -144,5 +143,26 @@ describe("continueTarget", () => {
 
   it("is null for an empty group", () => {
     expect(continueTarget([], { watched: [], lastLesson: null, positions: [] })).toBeNull();
+  });
+});
+
+describe("sectionKey", () => {
+  it("tells apart modules that share an index, as unnumbered folders do", () => {
+    const months = ["2026-06", "2026-07", "2026-08"].map((title) => ({ title, index: 0, lessons: [] }));
+    expect(new Set(months.map(sectionKey)).size).toBe(3);
+  });
+
+  it("is stable for the same module", () => {
+    expect(sectionKey({ title: "Intro", index: 2, lessons: [] })).toBe(sectionKey({ title: "Intro", index: 2, lessons: [] }));
+  });
+});
+
+describe("sectionNumber", () => {
+  it("keeps the number a module carries", () => {
+    expect(sectionNumber({ title: "Intro", index: 3, lessons: [] }, 0)).toBe(3);
+  });
+
+  it("falls back to the position for unnumbered modules such as month folders", () => {
+    expect(sectionNumber({ title: "2026-08", index: 0, lessons: [] }, 2)).toBe(3);
   });
 });
