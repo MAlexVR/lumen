@@ -207,6 +207,7 @@ impl WorkoutDownloader<'_> {
     }
 
     async fn process_workout(&self, ctx: &RunContext, workout: &PlannedWorkout) -> WorkoutOutcome {
+        lumen_download::wait_if_paused(self.cancel).await;
         if self.cancel.is_cancelled() {
             return WorkoutOutcome {
                 order: workout.order,
@@ -278,7 +279,11 @@ impl WorkoutDownloader<'_> {
                 ));
                 continue;
             };
-            if video_exists(&workout.dir, planned.number) || self.cancel.is_cancelled() {
+            if video_exists(&workout.dir, planned.number) {
+                continue;
+            }
+            lumen_download::wait_if_paused(self.cancel).await;
+            if self.cancel.is_cancelled() {
                 continue;
             }
             self.run_video(ctx, workout, planned, url, &mut issues)
@@ -663,6 +668,25 @@ mod tests {
             .to_string_lossy()
             .ends_with("01. 50%% effort.%(ext)s"));
         assert!(out.report.complete);
+    }
+
+    #[tokio::test]
+    async fn a_paused_run_holds_before_the_next_workout_until_resumed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let cancel = CancelFlag::new();
+        cancel.pause();
+        let agenda = two_workouts();
+        let run = run_with(FakeVideos::default(), &agenda, tmp.path(), cancel.clone());
+        tokio::pin!(run);
+        let held = tokio::time::timeout(std::time::Duration::from_millis(300), &mut run).await;
+        assert!(held.is_err(), "the run holds while paused");
+        assert!(!course_dir(tmp.path())
+            .join("2026-06-02 - Legs/01. Squat.mp4")
+            .exists());
+        cancel.resume();
+        let out = run.await;
+        assert!(out.report.complete);
+        assert_eq!(out.videos.urls().len(), 3);
     }
 
     #[tokio::test]

@@ -184,6 +184,10 @@ impl HarbizService {
         self.downloads.cancel(id)
     }
 
+    pub fn set_paused(&self, id: &str, paused: bool) -> bool {
+        self.downloads.set_paused(id, paused)
+    }
+
     pub fn running(&self) -> Vec<RunningDownload> {
         self.downloads.running()
     }
@@ -447,6 +451,10 @@ mod tests {
             ),
             Event::Report(_) => panic!("progress comes first"),
         }
+        assert!(!service.running()[0].paused);
+        assert!(service.set_paused(&id, true));
+        assert!(service.running()[0].paused);
+        assert!(!service.set_paused("dl-missing", true));
         assert!(service.cancel(&id));
         match rx.recv().await.unwrap() {
             Event::Report(r) => {

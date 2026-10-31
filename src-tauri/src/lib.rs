@@ -807,6 +807,7 @@ fn set_download_paused(app: &AppHandle, id: &str, paused: bool) -> bool {
             .set_paused(id, paused)
         || app.state::<Arc<YoutubeService>>().set_paused(id, paused)
         || app.state::<Arc<GoldenlifeService>>().set_paused(id, paused)
+        || app.state::<Arc<HarbizService>>().set_paused(id, paused)
 }
 
 #[tauri::command]
