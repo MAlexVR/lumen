@@ -14,8 +14,8 @@ Branch: `local/harbiz` (never pushed, never merged to main). Delivery: single lo
 ## Tasks
 - T1 (S5,S6) parsers: inline, done (RED 8 failed/1 passed -> GREEN 10 passed), commit 8e2c00a
 - T2 (S3,S5) DDP client (login, resume, paged past + single upcoming call): inline, done (RED 8+1+3 failed -> GREEN 29 passed; live: login ok, 66 workouts, 5 photo check-ins, 2026-06-01..2026-10-31), commit 954284b
-- T3 (S3,S6) planner + downloader with per-file skip: inline, done (RED 10+13 failed -> GREEN 53 passed), commit TBD
-- T4 (S1) CoursePlatform impl: inline, pending
+- T3 (S3,S6) planner + downloader with per-file skip: inline, done (RED 10+13 failed -> GREEN 53 passed), commit d1dc945
+- T4 (S1) CoursePlatform impl + course listing with local/pending counts: inline, done (RED 7 failed -> GREEN 60 passed), commit TBD
 - T5 (S6) lumen-core LibraryPlatform::Harbiz + scanner: inline, pending
 - T6 (S5) Tauri service + commands: inline, pending
 - T7 (S1) UI flow, i18n, mock: inline, pending
