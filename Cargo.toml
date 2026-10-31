@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/lumen-core", "crates/lumen-media", "crates/lumen-download", "crates/lumen-skool", "crates/lumen-hotmart", "crates/lumen-youtube", "crates/lumen-udemy", "crates/lumen-pluralsight", "crates/lumen-goldenlife", "crates/lumen-harbiz", "src-tauri"]
 
 [workspace.package]
-version = "0.5.4"
+version = "0.6.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/MAlexVR/lumen"

@@ -25,7 +25,7 @@
   Videos go through `yt-dlp`; descriptions, attachments and linked files are saved next to each lesson.
   **Pause and resume** any running download (the item in flight finishes, then the queue waits), and every class that finishes shows up in the library while the rest of the queue keeps downloading.
 - **Watch offline** in a built-in classroom: home with *continue where you left off*, a library with posters per course,
-  per-module progress, and a player with custom controls (including *play from the start* and *repeat*), speed, theatre mode and keyboard shortcuts.
+  per-module progress, and a player with custom controls (including *play from the start* and *repeat*), a workout timer with set-by-set progress for Harbiz, speed, theatre mode and keyboard shortcuts.
 - **Never fails silently**: every skipped or failed item ends up in a `download-report.json` and in the app.
   A course is only marked complete when nothing failed.
 - **You own the files**: choose the library folder in *Ajustes*, and delete courses from the library

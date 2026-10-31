@@ -3,6 +3,14 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.6.0] - 2026-10-31
+
+### Added
+- **Workout readout over the video** (Harbiz): a small, quiet panel in the top-right corner of the player shows a timer for the whole workout and the set you are on with its repetitions (`Serie 2/3 · 10 reps`). The check button (or the `S` key) marks the set done and moves to the next one; after the last set it shows *Completado* with a *Siguiente ejercicio* button. A small undo button takes back a set.
+- The workout timer starts the first time a video of the workout plays and keeps running through the rests. Click it to pause or resume; while paused a button restarts the workout (timer and sets). Sets and time are kept while the app is open, so moving between exercises does not lose them.
+- While an exercise still has sets left, its video plays again when it ends instead of moving on, so automatic *Next* cannot skip an exercise you have not finished. Once its sets are done it advances as usual.
+- Sets, repetitions and rest per exercise are read from the metadata Lumen already keeps in each Harbiz class folder (`.workout.json`); no new download is needed.
+
 ## [0.5.4] - 2026-10-31
 
 ### Added
