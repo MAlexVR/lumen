@@ -23,9 +23,9 @@ use serde_json::Value;
 use crate::error::HarbizError;
 use crate::parse::{Parsed, Workout};
 use crate::planner::{
-    course_dir, find_video, is_format_leftover, plan_workouts, video_exists, PlannedExercise,
-    PlannedWorkout, COURSE_TITLE, DESCRIPTION_FILE, LEGACY_WORKOUT_FILE, REPLACED_DIR, VIDEO_EXTS,
-    WORKOUT_FILE,
+    course_dir, find_video, is_format_leftover, plan_workouts, same_exercise_stem, video_exists,
+    PlannedExercise, PlannedWorkout, COURSE_TITLE, DESCRIPTION_FILE, LEGACY_WORKOUT_FILE,
+    REPLACED_DIR, VIDEO_EXTS, WORKOUT_FILE,
 };
 
 /// Platform id used in reports and by the app shell.
@@ -277,11 +277,6 @@ fn set_aside_stale(
     workout: &PlannedWorkout,
     old: Option<&Value>,
 ) -> Result<(), String> {
-    let keep: HashSet<String> = workout
-        .exercises
-        .iter()
-        .map(|e| e.stem.to_lowercase())
-        .collect();
     let changed = old.map(|o| changed_videos(o, workout)).unwrap_or_default();
     let Ok(entries) = std::fs::read_dir(work) else {
         return Ok(());
@@ -297,8 +292,12 @@ fn set_aside_stale(
             && (VIDEO_EXTS.contains(&ext.as_str()) || ext == "html")
             && is_numbered(stem)
             && !is_format_leftover(stem);
-        let lower = stem.to_lowercase();
-        if !ours || (keep.contains(&lower) && !changed.contains(&lower)) {
+        let belongs = workout
+            .exercises
+            .iter()
+            .any(|e| same_exercise_stem(stem, &e.stem));
+        let replaced = changed.iter().any(|c| same_exercise_stem(stem, c));
+        if !ours || (belongs && !replaced) {
             continue;
         }
         let aside = work.join(REPLACED_DIR);
@@ -344,11 +343,12 @@ pub(crate) fn write_notes(workout: &PlannedWorkout, work: &Path, issues: &mut Ve
     let mut written = 0;
     let mut without_video = Vec::new();
     for planned in &workout.exercises {
-        if find_video(work, &planned.stem).is_none() {
+        let Some(video) = find_video(work, &planned.stem) else {
             without_video.push(planned);
             continue;
-        }
-        let note = work.join(format!("{}.html", planned.stem));
+        };
+        // Named like the video itself, whatever length its name was cut to.
+        let note = video.with_extension("html");
         match write_if_changed(&note, &exercise_note(planned)) {
             Ok(changed) => written += usize::from(changed),
             Err(e) => issues.push(Issue::error(
@@ -1442,6 +1442,38 @@ mod tests {
         assert!(!dir.join("01. Old name.mp4").exists() && !dir.join("01. Old name.html").exists());
         assert!(dir.join(".replaced/01. Old name.mp4").is_file());
         assert_eq!(two.videos.urls(), [url_of(A)]);
+    }
+
+    #[tokio::test]
+    async fn a_video_saved_under_a_cut_name_is_kept_and_its_note_follows_the_video() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = final_dir(tmp.path(), "2026-06-02");
+        std::fs::create_dir_all(&dir).unwrap();
+        // Saved when the library sat on a deeper path, so the name was cut shorter.
+        std::fs::write(dir.join("01. Calf raise.mp4"), "kept").unwrap();
+        let agenda = parsed(vec![workout(
+            "w1",
+            "2026-06-02",
+            "t",
+            vec![exercise(
+                "Calf raise with a pause",
+                Some(&url_of(A)),
+            )],
+        )]);
+        let out = run(&agenda, tmp.path()).await;
+        assert!(
+            out.videos.urls().is_empty(),
+            "already downloaded: not asked again"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.join("01. Calf raise.mp4")).unwrap(),
+            "kept"
+        );
+        assert!(
+            dir.join("01. Calf raise.html").is_file(),
+            "the note is named like the video"
+        );
+        assert!(!dir.join(".replaced").exists());
     }
 
     #[tokio::test]

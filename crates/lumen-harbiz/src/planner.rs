@@ -127,17 +127,40 @@ pub(crate) fn is_format_leftover(stem: &str) -> bool {
         .is_some_and(|(_, digits)| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()))
 }
 
+/// Whether a file stem on disk belongs to the exercise with stem `planned`.
+/// Names are cut to fit the path-length budget, and that budget depends on where
+/// the library lives, so a cut name still matches: same number, and one name is
+/// the start of the other (long enough not to be a coincidence).
+pub fn same_exercise_stem(file_stem: &str, planned: &str) -> bool {
+    let (a, b) = (file_stem.to_lowercase(), planned.to_lowercase());
+    if a == b {
+        return true;
+    }
+    let (short, long) = if a.len() <= b.len() {
+        (&a, &b)
+    } else {
+        (&b, &a)
+    };
+    let (Some((short_number, short_name)), Some((long_number, _))) =
+        (short.split_once(". "), long.split_once(". "))
+    else {
+        return false;
+    };
+    short_number == long_number
+        && short_name.chars().count() >= 8
+        && long.starts_with(short.as_str())
+}
+
 /// The finished video of the exercise whose file stem is `stem` (`NN. name`).
 /// Matching the whole stem, not just the number, keeps a video tied to the
 /// exercise it was downloaded for: if the exercise is renamed or reordered, the
 /// old file no longer counts as its video.
 pub fn find_video(dir: &Path, stem: &str) -> Option<PathBuf> {
-    let wanted = stem.to_lowercase();
     let entries = std::fs::read_dir(dir).ok()?;
     entries.flatten().find_map(|entry| {
         let name = entry.file_name().to_string_lossy().into_owned();
         let (file_stem, ext) = name.rsplit_once('.')?;
-        (file_stem.to_lowercase() == wanted
+        (same_exercise_stem(file_stem, stem)
             && VIDEO_EXTS.contains(&ext.to_ascii_lowercase().as_str())
             && !is_format_leftover(file_stem))
         .then(|| entry.path())
@@ -325,6 +348,46 @@ mod tests {
         assert!(video_exists(dir, "10. Ten"));
         assert!(!video_exists(dir, "03. Three"));
         assert!(!video_exists(&dir.join("missing"), "02. Two"));
+    }
+
+    #[test]
+    fn a_name_cut_to_fit_a_longer_path_still_belongs_to_its_exercise() {
+        let long = "02. Calf raise with a pause and a twist";
+        let cut = "02. Calf raise";
+        assert!(same_exercise_stem(cut, long) && same_exercise_stem(long, cut));
+        assert!(same_exercise_stem(
+            "02. CALF RAISE",
+            long
+        ));
+    }
+
+    #[test]
+    fn different_exercises_never_match_even_when_the_start_is_alike() {
+        assert!(!same_exercise_stem("02. Old name", "02. New name"));
+        assert!(!same_exercise_stem(
+            "03. Calf raise",
+            "02. Calf raise"
+        ));
+        assert!(
+            !same_exercise_stem("02. Lunge", "02. Lunge with a long weighted twist"),
+            "too short to be a cut"
+        );
+    }
+
+    #[test]
+    fn a_cut_video_name_is_found_for_the_full_exercise_stem() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(
+            tmp.path().join("02. Calf raise.mp4"),
+            "x",
+        )
+        .unwrap();
+        let found = find_video(
+            tmp.path(),
+            "02. Calf raise with a pause and a twist",
+        );
+        assert!(found.is_some());
+        assert!(find_video(tmp.path(), "02. Another exercise entirely").is_none());
     }
 
     #[test]
