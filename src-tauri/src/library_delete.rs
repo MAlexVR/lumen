@@ -115,6 +115,7 @@ fn parse_platform(name: &str) -> Result<LibraryPlatform, DeleteError> {
         "youtube" => Ok(LibraryPlatform::Youtube),
         "pluralsight" => Ok(LibraryPlatform::Pluralsight),
         "goldenlife" => Ok(LibraryPlatform::Goldenlife),
+        "harbiz" => Ok(LibraryPlatform::Harbiz),
         other => Err(DeleteError::new(
             DeleteCode::InvalidTarget,
             format!("unknown platform \"{other}\""),
@@ -136,7 +137,8 @@ pub fn resolve_target(root: &Path, target: &DeleteTarget) -> Result<Resolved, De
         LibraryPlatform::Hotmart
         | LibraryPlatform::Youtube
         | LibraryPlatform::Pluralsight
-        | LibraryPlatform::Goldenlife => {
+        | LibraryPlatform::Goldenlife
+        | LibraryPlatform::Harbiz => {
             let prefix = format!("{}/", target.platform);
             target.group.strip_prefix(&prefix).ok_or_else(|| {
                 DeleteError::new(
@@ -186,7 +188,8 @@ pub fn resolve_target(root: &Path, target: &DeleteTarget) -> Result<Resolved, De
         LibraryPlatform::Hotmart
         | LibraryPlatform::Youtube
         | LibraryPlatform::Pluralsight
-        | LibraryPlatform::Goldenlife => {
+        | LibraryPlatform::Goldenlife
+        | LibraryPlatform::Harbiz => {
             format!("{}/{group_folder}", target.platform)
         }
     };
@@ -577,6 +580,26 @@ mod tests {
         assert_eq!(group.rel, "GoldenLife/Meta Ads");
         assert_eq!(
             code(resolve_target(t.path(), &target(Some("1. Modulo")))),
+            DeleteCode::InvalidTarget
+        );
+    }
+
+    #[test]
+    fn resolves_qualified_harbiz_group_and_rejects_nested_course() {
+        let t = lib();
+        fs::create_dir_all(t.path().join("Harbiz/Harbiz Training/2026-06-02 - Legs")).unwrap();
+        let target = |course: Option<&str>| DeleteTarget {
+            platform: "harbiz".into(),
+            group: "harbiz/Harbiz Training".into(),
+            course: course.map(str::to_string),
+            lesson: None,
+        };
+        let group = resolve_target(t.path(), &target(None)).unwrap();
+        assert_eq!(group.platform, LibraryPlatform::Harbiz);
+        assert_eq!(group.group_id, "harbiz/Harbiz Training");
+        assert_eq!(group.rel, "Harbiz/Harbiz Training");
+        assert_eq!(
+            code(resolve_target(t.path(), &target(Some("2026-06-02 - Legs")))),
             DeleteCode::InvalidTarget
         );
     }

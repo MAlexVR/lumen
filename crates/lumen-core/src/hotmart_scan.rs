@@ -15,7 +15,8 @@ use std::fs::DirEntry;
 use std::path::Path;
 
 use crate::model::{
-    goldenlife_lesson_key, hotmart_lesson_key, Course, Group, Lesson, LibraryPlatform, Section,
+    goldenlife_lesson_key, harbiz_lesson_key, hotmart_lesson_key, Course, Group, Lesson,
+    LibraryPlatform, Section,
 };
 use crate::scanner::{
     build_lesson, extension, group_status, is_hidden, is_temp, is_video, leading_number, name_of,
@@ -28,6 +29,7 @@ const SELLER_SEPARATOR: &str = " - ";
 fn platform_prefix(platform: LibraryPlatform) -> &'static str {
     match platform {
         LibraryPlatform::Goldenlife => "goldenlife",
+        LibraryPlatform::Harbiz => "harbiz",
         _ => "hotmart",
     }
 }
@@ -109,6 +111,7 @@ fn module_lessons(
 ) -> Vec<Lesson> {
     let key = |l: (u64, &str)| match platform {
         LibraryPlatform::Goldenlife => goldenlife_lesson_key(course, module, l),
+        LibraryPlatform::Harbiz => harbiz_lesson_key(course, module, l),
         _ => hotmart_lesson_key(course, module, l),
     };
     let mut lessons = Vec::new();

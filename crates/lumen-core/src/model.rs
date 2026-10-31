@@ -26,15 +26,17 @@ pub enum LibraryPlatform {
     Youtube,
     Pluralsight,
     Goldenlife,
+    Harbiz,
 }
 
 impl LibraryPlatform {
     /// Platforms in the order they are listed.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Skool,
         Self::Hotmart,
         Self::Pluralsight,
         Self::Goldenlife,
+        Self::Harbiz,
         Self::Youtube,
     ];
 
@@ -46,6 +48,7 @@ impl LibraryPlatform {
             Self::Youtube => "YouTube",
             Self::Pluralsight => "Pluralsight",
             Self::Goldenlife => "GoldenLife",
+            Self::Harbiz => "Harbiz",
         }
     }
 }
@@ -188,6 +191,12 @@ pub fn goldenlife_lesson_key(
     lesson: (u64, &str),
 ) -> String {
     format!("goldenlife:{}", lesson_key(course, module, lesson))
+}
+
+/// Harbiz lesson identity (an exercise of a workout), platform-qualified:
+/// `harbiz:<ci>-<course>/<mi>-<workout>/<li>-<exercise>`.
+pub fn harbiz_lesson_key(course: (u64, &str), module: (u64, &str), lesson: (u64, &str)) -> String {
+    format!("harbiz:{}", lesson_key(course, module, lesson))
 }
 
 /// YouTube lesson identity (a video of a playlist or of "Videos sueltos"),

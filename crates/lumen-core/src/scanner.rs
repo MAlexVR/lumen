@@ -84,11 +84,9 @@ impl LibraryScanner {
             LibraryPlatform::Hotmart => Ok(crate::hotmart_scan::scan_group(&dir, group)),
             LibraryPlatform::Youtube => Ok(crate::youtube_scan::scan_group(&dir, group)),
             LibraryPlatform::Pluralsight => Ok(crate::pluralsight_scan::scan_group(&dir, group)),
-            LibraryPlatform::Goldenlife => Ok(crate::hotmart_scan::scan_group_of(
-                LibraryPlatform::Goldenlife,
-                &dir,
-                group,
-            )),
+            LibraryPlatform::Goldenlife | LibraryPlatform::Harbiz => {
+                Ok(crate::hotmart_scan::scan_group_of(platform, &dir, group))
+            }
         }
     }
 
@@ -693,6 +691,69 @@ mod tests {
                 .id,
             group.id
         );
+    }
+
+    #[test]
+    fn harbiz_workouts_are_modules_and_their_exercise_videos_are_lessons() {
+        let tmp = TempDir::new().unwrap();
+        let workout = "Harbiz/Harbiz Training/2026-06-02 - Legs";
+        put(tmp.path(), &format!("{workout}/workout.json"), "{}");
+        put(tmp.path(), &format!("{workout}/01. Squat.mp4"), "video");
+        put(tmp.path(), &format!("{workout}/01. Squat.html"), "note");
+        put(tmp.path(), &format!("{workout}/02. Lunge.mp4"), "video");
+        put(
+            tmp.path(),
+            "Harbiz/Harbiz Training/2026-06-04 - Core/01. Plank.mp4",
+            "video",
+        );
+
+        let scanner = LibraryScanner::new(tmp.path());
+        let library = scanner.scan().unwrap();
+        let platform = library
+            .platform(LibraryPlatform::Harbiz)
+            .expect("an existing Harbiz directory appears in the platform list");
+        let group = &platform.groups[0];
+        assert_eq!(group.id, "harbiz/Harbiz Training");
+        assert_eq!(group.platform, LibraryPlatform::Harbiz);
+        assert_eq!(group.title, "Harbiz Training");
+        assert_eq!(group.lesson_count, 3);
+        let sections = &group.courses[0].sections;
+        assert_eq!(
+            sections
+                .iter()
+                .map(|s| s.title.as_str())
+                .collect::<Vec<_>>(),
+            ["2026-06-02 - Legs", "2026-06-04 - Core"]
+        );
+        let squat = &sections[0].lessons[0];
+        assert_eq!(squat.title, "Squat");
+        assert_eq!(squat.index, 1);
+        assert_eq!(
+            squat.key,
+            "harbiz:1-Harbiz Training/0-2026-06-02 - Legs/1-Squat"
+        );
+        assert_eq!(
+            squat.video.as_deref(),
+            Some(format!("{workout}/01. Squat.mp4").as_str())
+        );
+        assert_eq!(
+            squat.description.as_deref(),
+            Some(format!("{workout}/01. Squat.html").as_str())
+        );
+        assert!(sections[0].lessons[1].description.is_none());
+        assert_eq!(
+            scanner
+                .scan_platform_group(LibraryPlatform::Harbiz, "Harbiz Training")
+                .unwrap()
+                .id,
+            group.id
+        );
+        let json = serde_json::to_value(&library).unwrap();
+        assert!(json["platforms"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["id"] == "harbiz"));
     }
 
     #[test]
