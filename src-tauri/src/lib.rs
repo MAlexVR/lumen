@@ -1021,6 +1021,9 @@ pub fn run() {
             ))?;
             let core = Arc::new(core);
             app.manage(Arc::clone(&core));
+            // Notes of Harbiz classes downloaded by an older version are rewritten
+            // from their saved metadata before the UI scans the library (no network).
+            let _ = lumen_harbiz::refresh_notes(&core.library_root());
             app.manage(Arc::new(UdemyService::new(
                 session::SessionStore::for_platform(&data_dir, "udemy"),
                 data_dir.clone(),

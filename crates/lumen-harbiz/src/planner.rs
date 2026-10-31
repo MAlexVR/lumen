@@ -21,8 +21,10 @@ pub const WORKOUT_FILE: &str = ".workout.json";
 pub const DESCRIPTION_FILE: &str = "Description.html";
 /// Name of the metadata file before it was hidden.
 pub const LEGACY_WORKOUT_FILE: &str = "workout.json";
+/// Hidden folder where a video that no longer matches its exercise is kept.
+pub const REPLACED_DIR: &str = ".replaced";
 
-const VIDEO_EXTS: [&str; 3] = ["mp4", "mkv", "webm"];
+pub(crate) const VIDEO_EXTS: [&str; 3] = ["mp4", "mkv", "webm"];
 
 pub fn course_dir(library_root: &Path) -> PathBuf {
     library_root.join(PLATFORM_DIR).join(COURSE_TITLE)
@@ -89,7 +91,7 @@ pub fn plan_workouts(course_dir: &Path, workouts: &[Workout]) -> Vec<PlannedWork
         .collect()
 }
 
-fn plan_exercises(dir: &Path, exercises: &[Exercise]) -> Vec<PlannedExercise> {
+pub(crate) fn plan_exercises(dir: &Path, exercises: &[Exercise]) -> Vec<PlannedExercise> {
     // Room for the extension and yt-dlp's `.part` / `.fNNN` leftovers.
     let budget = name_budget(path_units(dir), 20).min(80);
     exercises
@@ -116,32 +118,35 @@ pub fn is_downloaded(planned: &PlannedWorkout) -> bool {
             .exercises
             .iter()
             .filter(|e| e.exercise.url.is_some())
-            .all(|e| video_exists(&planned.dir, e.number))
+            .all(|e| video_exists(&planned.dir, &e.stem))
 }
 
 /// A `.fNNN` stem suffix marks an unmerged yt-dlp format file, not a finished video.
-fn is_format_leftover(stem: &str) -> bool {
+pub(crate) fn is_format_leftover(stem: &str) -> bool {
     stem.rsplit_once(".f")
         .is_some_and(|(_, digits)| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()))
 }
 
-/// The finished video of exercise `number` in `dir`, if there is one.
-pub fn find_video(dir: &Path, number: usize) -> Option<PathBuf> {
-    let prefix = format!("{number:02}. ");
+/// The finished video of the exercise whose file stem is `stem` (`NN. name`).
+/// Matching the whole stem, not just the number, keeps a video tied to the
+/// exercise it was downloaded for: if the exercise is renamed or reordered, the
+/// old file no longer counts as its video.
+pub fn find_video(dir: &Path, stem: &str) -> Option<PathBuf> {
+    let wanted = stem.to_lowercase();
     let entries = std::fs::read_dir(dir).ok()?;
     entries.flatten().find_map(|entry| {
         let name = entry.file_name().to_string_lossy().into_owned();
-        let (stem, ext) = name.rsplit_once('.')?;
-        (name.starts_with(&prefix)
+        let (file_stem, ext) = name.rsplit_once('.')?;
+        (file_stem.to_lowercase() == wanted
             && VIDEO_EXTS.contains(&ext.to_ascii_lowercase().as_str())
-            && !is_format_leftover(stem))
+            && !is_format_leftover(file_stem))
         .then(|| entry.path())
     })
 }
 
-/// True when a finished video for exercise `number` exists in `dir`.
-pub fn video_exists(dir: &Path, number: usize) -> bool {
-    find_video(dir, number).is_some()
+/// True when the finished video of the exercise with stem `stem` is in `dir`.
+pub fn video_exists(dir: &Path, stem: &str) -> bool {
+    find_video(dir, stem).is_some()
 }
 
 #[cfg(test)]
@@ -315,11 +320,19 @@ mod tests {
         ] {
             std::fs::write(dir.join(name), "x").unwrap();
         }
-        assert!(!video_exists(dir, 1));
-        assert!(video_exists(dir, 2));
-        assert!(video_exists(dir, 10));
-        assert!(!video_exists(dir, 3));
-        assert!(!video_exists(&dir.join("missing"), 2));
+        assert!(!video_exists(dir, "01. One"));
+        assert!(video_exists(dir, "02. Two"));
+        assert!(video_exists(dir, "10. Ten"));
+        assert!(!video_exists(dir, "03. Three"));
+        assert!(!video_exists(&dir.join("missing"), "02. Two"));
+    }
+
+    #[test]
+    fn a_video_belongs_to_its_exercise_by_full_name_not_just_by_number() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("02. Old name.mp4"), "x").unwrap();
+        assert!(!video_exists(tmp.path(), "02. New name"));
+        assert!(video_exists(tmp.path(), "02. Old name"));
     }
 
     #[test]

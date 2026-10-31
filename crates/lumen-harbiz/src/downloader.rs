@@ -3,7 +3,7 @@
 //! fetches what is new (typically workouts scheduled since the last run). Every
 //! failure becomes an [`Issue`] in the report, nothing is swallowed.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Mutex, MutexGuard};
@@ -23,8 +23,9 @@ use serde_json::Value;
 use crate::error::HarbizError;
 use crate::parse::{Parsed, Workout};
 use crate::planner::{
-    course_dir, find_video, plan_workouts, video_exists, PlannedExercise, PlannedWorkout,
-    COURSE_TITLE, DESCRIPTION_FILE, LEGACY_WORKOUT_FILE, WORKOUT_FILE,
+    course_dir, find_video, is_format_leftover, plan_workouts, video_exists, PlannedExercise,
+    PlannedWorkout, COURSE_TITLE, DESCRIPTION_FILE, LEGACY_WORKOUT_FILE, REPLACED_DIR, VIDEO_EXTS,
+    WORKOUT_FILE,
 };
 
 /// Platform id used in reports and by the app shell.
@@ -228,6 +229,92 @@ fn overall_facts(result: &Value) -> Vec<String> {
         .collect()
 }
 
+/// Identity of a video link: the YouTube id, so `youtu.be/ID?si=x` and
+/// `watch?v=ID` are the same video.
+fn video_key(url: &str) -> String {
+    match parse_target(url) {
+        Ok(Target::Video(id)) => id,
+        _ => url
+            .split(['?', '#'])
+            .next()
+            .unwrap_or(url)
+            .trim()
+            .to_string(),
+    }
+}
+
+/// Stems of the exercises whose video link changed since the last run recorded
+/// them in `.workout.json`, while the exercise itself kept its name.
+fn changed_videos(old: &Value, workout: &PlannedWorkout) -> HashSet<String> {
+    let Some(before) = old.get("exercises").and_then(Value::as_array) else {
+        return HashSet::new();
+    };
+    let mut changed = HashSet::new();
+    for (planned, prev) in workout.exercises.iter().zip(before) {
+        let same_name = prev.get("name").and_then(Value::as_str).map(str::trim)
+            == Some(planned.exercise.name.trim());
+        let was = prev.get("url").and_then(Value::as_str).map(video_key);
+        let now = planned.exercise.url.as_deref().map(video_key);
+        if same_name && was != now {
+            changed.insert(planned.stem.to_lowercase());
+        }
+    }
+    changed
+}
+
+/// `NN. ` at the start of a file stem: the numbering this adapter gives its files.
+fn is_numbered(stem: &str) -> bool {
+    stem.split_once(". ")
+        .is_some_and(|(n, _)| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// Moves into `.replaced/` the videos and notes this adapter wrote that no
+/// longer belong to an exercise of the workout (renamed, reordered or given a
+/// different video), so the class only lists what matches the agenda. Nothing
+/// is deleted, and files that are not named like ours are never touched.
+fn set_aside_stale(
+    work: &Path,
+    workout: &PlannedWorkout,
+    old: Option<&Value>,
+) -> Result<(), String> {
+    let keep: HashSet<String> = workout
+        .exercises
+        .iter()
+        .map(|e| e.stem.to_lowercase())
+        .collect();
+    let changed = old.map(|o| changed_videos(o, workout)).unwrap_or_default();
+    let Ok(entries) = std::fs::read_dir(work) else {
+        return Ok(());
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let Some((stem, ext)) = name.rsplit_once('.') else {
+            continue;
+        };
+        let ext = ext.to_ascii_lowercase();
+        let ours = entry.file_type().is_ok_and(|t| t.is_file())
+            && !name.starts_with('.')
+            && (VIDEO_EXTS.contains(&ext.as_str()) || ext == "html")
+            && is_numbered(stem)
+            && !is_format_leftover(stem);
+        let lower = stem.to_lowercase();
+        if !ours || (keep.contains(&lower) && !changed.contains(&lower)) {
+            continue;
+        }
+        let aside = work.join(REPLACED_DIR);
+        std::fs::create_dir_all(&aside).map_err(|e| e.to_string())?;
+        let mut target = aside.join(&name);
+        for n in 2.. {
+            if !target.exists() {
+                break;
+            }
+            target = aside.join(format!("{stem} ({n}).{ext}"));
+        }
+        std::fs::rename(entry.path(), target).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Moves a workout folder written by an earlier version (straight under the
 /// course) into its month and removes its old metadata file.
 fn migrate_legacy(workout: &PlannedWorkout) -> Result<(), String> {
@@ -237,6 +324,52 @@ fn migrate_legacy(workout: &PlannedWorkout) -> Result<(), String> {
     }
     let _ = std::fs::remove_file(workout.dir.join(LEGACY_WORKOUT_FILE));
     Ok(())
+}
+
+/// Writes `content` unless the file already holds exactly that.
+fn write_if_changed(path: &Path, content: &str) -> std::io::Result<bool> {
+    if std::fs::read_to_string(path).is_ok_and(|current| current == content) {
+        return Ok(false);
+    }
+    std::fs::write(path, content)?;
+    Ok(true)
+}
+
+/// Writes a note next to every exercise video that is on disk, and the class
+/// page with the exercises that have no video. Rewritten every run: a
+/// scheduled workout gains its results later and a missing video may arrive.
+/// Returns how many files changed.
+pub(crate) fn write_notes(workout: &PlannedWorkout, work: &Path, issues: &mut Vec<Issue>) -> usize {
+    let label = workout.label.as_str();
+    let mut written = 0;
+    let mut without_video = Vec::new();
+    for planned in &workout.exercises {
+        if find_video(work, &planned.stem).is_none() {
+            without_video.push(planned);
+            continue;
+        }
+        let note = work.join(format!("{}.html", planned.stem));
+        match write_if_changed(&note, &exercise_note(planned)) {
+            Ok(changed) => written += usize::from(changed),
+            Err(e) => issues.push(Issue::error(
+                IssueKind::Course,
+                Some(label),
+                None,
+                format!("cannot write the note of {}: {e}", planned.stem),
+            )),
+        }
+    }
+    let page = workout_description(&workout.workout, &without_video);
+    match write_if_changed(&work.join(DESCRIPTION_FILE), &page) {
+        Ok(changed) => written += usize::from(changed),
+        Err(e) => issues.push(Issue::error(
+            IssueKind::Course,
+            Some(label),
+            None,
+            format!("cannot write {DESCRIPTION_FILE}: {e}"),
+        )),
+    }
+    written
 }
 
 impl WorkoutDownloader<'_> {
@@ -391,6 +524,18 @@ impl WorkoutDownloader<'_> {
             ));
             return issues;
         }
+        // What the last run recorded tells which files still belong to the agenda.
+        let recorded: Option<Value> = std::fs::read_to_string(work.join(WORKOUT_FILE))
+            .ok()
+            .and_then(|json| serde_json::from_str(&json).ok());
+        if let Err(e) = set_aside_stale(work, workout, recorded.as_ref()) {
+            issues.push(Issue::error(
+                IssueKind::Course,
+                Some(label),
+                None,
+                format!("cannot set aside videos that no longer match the agenda: {e}"),
+            ));
+        }
         // Metadata is rewritten every run: a scheduled workout gains its results later.
         let metadata = serde_json::to_string_pretty(&workout.workout)
             .map_err(|e| e.to_string())
@@ -423,7 +568,7 @@ impl WorkoutDownloader<'_> {
                 ));
                 continue;
             };
-            if video_exists(work, planned.number) {
+            if video_exists(work, &planned.stem) {
                 continue;
             }
             lumen_download::wait_if_paused(self.cancel).await;
@@ -433,43 +578,11 @@ impl WorkoutDownloader<'_> {
             self.run_video(ctx, workout, work, planned, url, &mut issues)
                 .await;
         }
-        self.write_notes(workout, work, &mut issues);
+        write_notes(workout, work, &mut issues);
         if work != workout.dir.as_path() {
             self.publish(ctx, workout, work, &mut issues);
         }
         issues
-    }
-
-    /// Writes a note next to every exercise video that is on disk, and the class
-    /// page with the exercises that have no video. Rewritten every run: a
-    /// scheduled workout gains its results later and a missing video may arrive.
-    fn write_notes(&self, workout: &PlannedWorkout, work: &Path, issues: &mut Vec<Issue>) {
-        let label = workout.label.as_str();
-        let mut without_video = Vec::new();
-        for planned in &workout.exercises {
-            if find_video(work, planned.number).is_none() {
-                without_video.push(planned);
-                continue;
-            }
-            let note = work.join(format!("{}.html", planned.stem));
-            if let Err(e) = std::fs::write(&note, exercise_note(planned)) {
-                issues.push(Issue::error(
-                    IssueKind::Course,
-                    Some(label),
-                    None,
-                    format!("cannot write the note of {}: {e}", planned.stem),
-                ));
-            }
-        }
-        let page = workout_description(&workout.workout, &without_video);
-        if let Err(e) = std::fs::write(work.join(DESCRIPTION_FILE), page) {
-            issues.push(Issue::error(
-                IssueKind::Course,
-                Some(label),
-                None,
-                format!("cannot write {DESCRIPTION_FILE}: {e}"),
-            ));
-        }
     }
 
     /// Moves a finished hidden folder into place so the library lists the class.
@@ -485,7 +598,7 @@ impl WorkoutDownloader<'_> {
         let has_video = workout
             .exercises
             .iter()
-            .any(|e| find_video(work, e.number).is_some());
+            .any(|e| find_video(work, &e.stem).is_some());
         let failed = issues.iter().any(|i| i.severity == Severity::Error);
         if self.cancel.is_cancelled() || (failed && !has_video) {
             return;
@@ -571,7 +684,7 @@ impl WorkoutDownloader<'_> {
         };
         let on_percent = |p: f32| self.emit(ctx, workout, p);
         match self.videos.download(&job, self.cancel, &on_percent).await {
-            Ok(()) => match find_video(dir, planned.number) {
+            Ok(()) => match find_video(dir, &planned.stem) {
                 Some(path) => {
                     ctx.bot_checks.store(0, Ordering::SeqCst);
                     if let Some(id) = id {
@@ -1277,6 +1390,97 @@ mod tests {
             .join("01. Move 0.mp4")
             .is_file());
         assert!(out.report.issues.is_empty());
+    }
+
+    async fn run_twice(first: Workout, second: Workout, tmp: &Path) -> (Run, Run) {
+        let one = run(&parsed(vec![first]), tmp).await;
+        let two = run(&parsed(vec![second]), tmp).await;
+        (one, two)
+    }
+
+    #[tokio::test]
+    async fn a_video_that_no_longer_matches_its_exercise_is_set_aside_and_fetched_again() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (_, two) = run_twice(
+            class("w1", "2026-06-02", &[A, B]),
+            class("w1", "2026-06-02", &[A, C]),
+            tmp.path(),
+        )
+        .await;
+        assert_eq!(
+            two.videos.urls(),
+            [url_of(C)],
+            "only the exercise whose video changed is fetched"
+        );
+        let dir = final_dir(tmp.path(), "2026-06-02");
+        assert!(dir.join("01. Move 0.mp4").is_file());
+        assert!(dir.join("02. Move 1.mp4").is_file());
+        assert!(
+            dir.join(".replaced/02. Move 1.mp4").is_file(),
+            "the old video is kept, out of the library"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_renamed_exercise_leaves_no_stray_video_in_the_class() {
+        let tmp = tempfile::tempdir().unwrap();
+        let before = workout(
+            "w1",
+            "2026-06-02",
+            "t",
+            vec![exercise("Old name", Some(&url_of(A)))],
+        );
+        let after = workout(
+            "w1",
+            "2026-06-02",
+            "t",
+            vec![exercise("New name", Some(&url_of(A)))],
+        );
+        let (_, two) = run_twice(before, after, tmp.path()).await;
+        let dir = final_dir(tmp.path(), "2026-06-02");
+        assert!(dir.join("01. New name.mp4").is_file() && dir.join("01. New name.html").is_file());
+        assert!(!dir.join("01. Old name.mp4").exists() && !dir.join("01. Old name.html").exists());
+        assert!(dir.join(".replaced/01. Old name.mp4").is_file());
+        assert_eq!(two.videos.urls(), [url_of(A)]);
+    }
+
+    #[tokio::test]
+    async fn files_the_class_did_not_create_are_left_alone() {
+        let tmp = tempfile::tempdir().unwrap();
+        run(&parsed(vec![class("w1", "2026-06-02", &[A])]), tmp.path()).await;
+        let dir = final_dir(tmp.path(), "2026-06-02");
+        std::fs::write(dir.join("my notes.txt"), "mine").unwrap();
+        std::fs::write(dir.join("cover.jpg"), "mine").unwrap();
+        run(&parsed(vec![class("w1", "2026-06-02", &[A])]), tmp.path()).await;
+        assert_eq!(
+            std::fs::read_to_string(dir.join("my notes.txt")).unwrap(),
+            "mine"
+        );
+        assert!(dir.join("cover.jpg").is_file());
+        assert!(!dir.join(".replaced").exists());
+    }
+
+    #[tokio::test]
+    async fn exercises_that_share_a_video_each_keep_their_own_file_and_note() {
+        let tmp = tempfile::tempdir().unwrap();
+        let shared = |n: &str| exercise(n, Some(&url_of(A)));
+        let agenda = parsed(vec![
+            workout("w1", "2026-06-02", "t", vec![shared("One"), shared("Two")]),
+            workout("w2", "2026-06-04", "t", vec![shared("Three")]),
+        ]);
+        let out = run(&agenda, tmp.path()).await;
+        assert_eq!(out.videos.urls(), [url_of(A)], "downloaded once");
+        let first = final_dir(tmp.path(), "2026-06-02");
+        let second = final_dir(tmp.path(), "2026-06-04");
+        for (dir, stem, other) in [
+            (&first, "01. One", "Two"),
+            (&first, "02. Two", "One"),
+            (&second, "01. Three", "One"),
+        ] {
+            assert!(dir.join(format!("{stem}.mp4")).is_file());
+            let note = std::fs::read_to_string(dir.join(format!("{stem}.html"))).unwrap();
+            assert!(note.contains(&stem[4..]) && !note.contains(other));
+        }
     }
 
     #[tokio::test]

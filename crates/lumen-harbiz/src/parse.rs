@@ -1,11 +1,11 @@
 //! Pure parsers over the JSON that Harbiz returns for a client's agenda.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::error::HarbizError;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Exercise {
     pub name: String,
@@ -21,7 +21,7 @@ pub struct Exercise {
     pub result: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Workout {
     pub id: String,
