@@ -3,6 +3,17 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.5.0] - 2026-10-30
+
+### Added
+- **Harbiz** (the coaching app) is a new download platform. Sign in with your Harbiz email and password; Lumen keeps only the session token. Your agenda, past and scheduled workouts, is saved as `Harbiz/Harbiz Training/<YYYY-MM>/<date - title>/`: one class per workout, with each exercise video (`NN. exercise.mp4`), a `Description.html` with how the workout went and every exercise's sets, notes and results. *Update* only downloads what is not on disk yet, so workouts scheduled later are picked up on the next run. A video that no longer exists on YouTube is reported as a warning (with the reason and the full link) instead of failing the course, a video shared by several workouts is fetched once, and the run stops after three YouTube bot checks in a row instead of listing hundreds of errors.
+- **Pause and resume** any running download, on every platform. The item in flight finishes and the queue waits at the next one; cancelling still works while paused, and the paused state survives reloading the app.
+- Finished classes now appear in the library while the rest of a download queue is still running. The library is rescanned at most once every few seconds, so a long queue does not slow the app down; Harbiz publishes a class only once it has finished downloading.
+- The player has a *play from the start* button (keys `0` or `Home`), and its controls are grouped: play/pause, start, ±10 s, then volume and time.
+
+### Fixed
+- A course whose modules are unnumbered folders (such as Harbiz's month folders) now opens from the library instead of staying on the same screen, and its modules are numbered by position.
+
 ## [0.4.1] - 2026-10-25
 
 ### Fixed

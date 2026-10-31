@@ -20,11 +20,12 @@
 
 ## What it does
 
-- **Download** courses you already own from **Hotmart**, **Skool**, **Pluralsight** and **Golden Life** (sign in with your academy email and password), and single videos or playlists from **YouTube**.
+- **Download** courses you already own from **Hotmart**, **Skool**, **Pluralsight** and **Golden Life** (sign in with your academy email and password), your **Harbiz** workouts (past and scheduled; each *Update* only fetches what is new), and single videos or playlists from **YouTube**.
   A guided check for **Udemy** tells you which of your courses are downloadable (DRM-protected ones are not); downloading from Udemy is not implemented yet.
   Videos go through `yt-dlp`; descriptions, attachments and linked files are saved next to each lesson.
+  **Pause and resume** any running download (the item in flight finishes, then the queue waits), and every class that finishes shows up in the library while the rest of the queue keeps downloading.
 - **Watch offline** in a built-in classroom: home with *continue where you left off*, a library with posters per course,
-  per-module progress, and a player with custom controls, speed, theatre mode and keyboard shortcuts.
+  per-module progress, and a player with custom controls (including *play from the start*), speed, theatre mode and keyboard shortcuts.
 - **Never fails silently**: every skipped or failed item ends up in a `download-report.json` and in the app.
   A course is only marked complete when nothing failed.
 - **You own the files**: choose the library folder in *Ajustes*, and delete courses from the library
@@ -96,6 +97,7 @@ pnpm test                    # UI tests (from ui/)
 - Linux is the development and test platform. **Windows 11 is the target but has not been tested yet**:
   it is validated manually at milestones through the manual `windows` job in CI.
 - Nothing has been run against live Hotmart or Skool in automated tests; the downloaders are verified against fixtures and fakes.
+  Harbiz was checked read-only against the live service (sign-in and agenda listing); its video downloads are verified against fakes.
 - Installers are built only for tagged versions, after tests pass (`git tag vX.Y.Z && git push origin vX.Y.Z` runs `.github/workflows/release.yml`). No binaries are stored in the repository.
 
 ## Credits and license

@@ -2286,7 +2286,7 @@ checksum = "4050469837a6ff301cd14c1f8f24f88549e6d548f24f64e2148eb0f72cebc51f"
 
 [[package]]
 name = "lumen"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -2318,7 +2318,7 @@ dependencies = [
 
 [[package]]
 name = "lumen-core"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "rusqlite",
@@ -2331,7 +2331,7 @@ dependencies = [
 
 [[package]]
 name = "lumen-download"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -2346,7 +2346,7 @@ dependencies = [
 
 [[package]]
 name = "lumen-goldenlife"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -2364,7 +2364,7 @@ dependencies = [
 
 [[package]]
 name = "lumen-harbiz"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -2385,7 +2385,7 @@ dependencies = [
 
 [[package]]
 name = "lumen-hotmart"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -2403,7 +2403,7 @@ dependencies = [
 
 [[package]]
 name = "lumen-media"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "axum",
  "getrandom 0.3.4",
@@ -2419,7 +2419,7 @@ dependencies = [
 
 [[package]]
 name = "lumen-pluralsight"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "lumen-core",
@@ -2436,7 +2436,7 @@ dependencies = [
 
 [[package]]
 name = "lumen-skool"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -2454,7 +2454,7 @@ dependencies = [
 
 [[package]]
 name = "lumen-udemy"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "futures-util",
  "lumen-core",
@@ -2471,7 +2471,7 @@ dependencies = [
 
 [[package]]
 name = "lumen-youtube"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "lumen-core",
