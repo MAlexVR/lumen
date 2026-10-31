@@ -21,6 +21,8 @@ pub struct ExercisePlan {
     pub target: String,
     /// Rest between sets in seconds, when given.
     pub rest: Option<u32>,
+    /// The coach's instructions for the exercise, as written (line breaks kept).
+    pub notes: String,
 }
 
 fn count(text: &str) -> Option<u32> {
@@ -44,6 +46,7 @@ pub fn exercise_plan(class_dir: &Path) -> Vec<ExercisePlan> {
             sets: count(&e.sets),
             target: e.target.trim().to_string(),
             rest: count(&e.rest),
+            notes: e.notes.trim().to_string(),
         })
         .collect()
 }
@@ -55,6 +58,16 @@ mod tests {
     use serde_json::Value;
 
     fn exercise(name: &str, sets: &str, target: &str, rest: &str) -> Exercise {
+        exercise_with_notes(name, sets, target, rest, "")
+    }
+
+    fn exercise_with_notes(
+        name: &str,
+        sets: &str,
+        target: &str,
+        rest: &str,
+        notes: &str,
+    ) -> Exercise {
         Exercise {
             name: name.to_string(),
             url: None,
@@ -62,7 +75,7 @@ mod tests {
             sets: sets.to_string(),
             target: target.to_string(),
             rest: rest.to_string(),
-            notes: String::new(),
+            notes: notes.to_string(),
             result: Value::Null,
         }
     }
@@ -89,7 +102,7 @@ mod tests {
     #[test]
     fn each_exercise_has_its_number_sets_repetitions_and_rest() {
         let tmp = class_with(vec![
-            exercise("Squat", "3", "10", "30"),
+            exercise_with_notes("Squat", "3", "10", "30", "  Chest up,\nknees out.  "),
             exercise("Plank", "2", "45", "60"),
         ]);
         assert_eq!(
@@ -100,14 +113,16 @@ mod tests {
                     name: "Squat".into(),
                     sets: Some(3),
                     target: "10".into(),
-                    rest: Some(30)
+                    rest: Some(30),
+                    notes: "Chest up,\nknees out.".into()
                 },
                 ExercisePlan {
                     number: 2,
                     name: "Plank".into(),
                     sets: Some(2),
                     target: "45".into(),
-                    rest: Some(60)
+                    rest: Some(60),
+                    notes: String::new()
                 },
             ]
         );
@@ -143,11 +158,12 @@ mod tests {
             sets: Some(2),
             target: "10".into(),
             rest: None,
+            notes: "Slow".into(),
         };
         let json = serde_json::to_value(plan).unwrap();
         assert_eq!(
             json,
-            serde_json::json!({"number": 1, "name": "A", "sets": 2, "target": "10", "rest": null})
+            serde_json::json!({"number": 1, "name": "A", "sets": 2, "target": "10", "rest": null, "notes": "Slow"})
         );
     }
 }
