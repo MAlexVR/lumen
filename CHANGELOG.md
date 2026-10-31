@@ -5,6 +5,13 @@ Each release's notes and its git tag message are taken from the matching section
 
 ## [0.6.4] - 2026-10-31
 
+This is the first release since 0.4.1: it ships everything listed under 0.5.0 to 0.6.3 below. The highlights:
+
+- **Harbiz**, a new download platform for your coaching workouts: past and scheduled, one class per workout grouped by month, each exercise a video with its own instructions, incremental updates, and honest reports (a video that no longer exists is a warning, and repeated YouTube bot checks stop the run with one clear message).
+- **Pause and resume** any running download on every platform, and finished classes show up in the library while the rest of a queue is still downloading.
+- **Player**: *play from the start* and *repeat* buttons, a lessons panel that lists the videos of the playing lesson (foldable), next/previous that walk through a lesson's videos, and full screen that survives moving to the next video.
+- **Workout mode** (Harbiz): over the video, the exercise name and instructions, a timer that counts only while the video plays, and set-by-set progress with its repetitions.
+
 ### Added
 - The instructions of the exercise on screen now appear under its name, in the top-left corner of the video, in the same quiet translucent style (Harbiz). A small button next to the name hides or shows them, and the choice is remembered. They come from the coach's notes already saved with each class, so nothing needs to be downloaded again.
 
