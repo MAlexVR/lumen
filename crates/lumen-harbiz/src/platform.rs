@@ -3,6 +3,7 @@
 
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use lumen_core::{
@@ -17,6 +18,10 @@ use crate::downloader::{WorkoutDownloader, PLATFORM_ID};
 use crate::error::HarbizError;
 use crate::parse::{Parsed, Workout};
 use crate::planner::{course_dir, is_downloaded, plan_workouts, COURSE_TITLE};
+
+/// Pause between video requests: ~590 requests in a burst got the owner a
+/// YouTube bot check, so a long agenda is spread out.
+const DEFAULT_PACE: Duration = Duration::from_millis(1500);
 
 /// Slug of the only group.
 pub const GROUP_SLUG: &str = "harbiz";
@@ -56,6 +61,7 @@ pub struct HarbizPlatform {
     api: Arc<dyn HarbizApi>,
     videos: Arc<dyn VideoRunner>,
     clock: Arc<dyn Fn() -> i64 + Send + Sync>,
+    pace: Duration,
 }
 
 impl HarbizPlatform {
@@ -64,7 +70,15 @@ impl HarbizPlatform {
             api,
             videos,
             clock: Arc::new(system_now_ms),
+            pace: DEFAULT_PACE,
         }
+    }
+
+    /// Pause after each video request (zero in tests).
+    #[must_use]
+    pub fn with_pace(mut self, pace: Duration) -> Self {
+        self.pace = pace;
+        self
     }
 
     /// Replaces the clock (milliseconds since the epoch) the agenda is read with.
@@ -115,6 +129,7 @@ impl CoursePlatform for HarbizPlatform {
             sink,
             cancel,
             options: options.clone(),
+            pace: self.pace,
         }
         .run(&parsed, library_root)
         .await?)
@@ -239,7 +254,9 @@ mod tests {
     }
 
     fn platform(api: Arc<FakeApi>, videos: Arc<FakeVideos>) -> HarbizPlatform {
-        HarbizPlatform::new(api, videos).with_clock(Arc::new(|| 1_234))
+        HarbizPlatform::new(api, videos)
+            .with_clock(Arc::new(|| 1_234))
+            .with_pace(Duration::ZERO)
     }
 
     async fn download(

@@ -2371,6 +2371,7 @@ dependencies = [
  "hex",
  "lumen-core",
  "lumen-download",
+ "lumen-youtube",
  "rustls",
  "serde",
  "serde_json",

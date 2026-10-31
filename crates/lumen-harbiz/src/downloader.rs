@@ -3,8 +3,10 @@
 //! fetches what is new (typically workouts scheduled since the last run). Every
 //! failure becomes an [`Issue`] in the report, nothing is swallowed.
 
-use std::path::Path;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::{Mutex, MutexGuard};
 
 use futures_util::future::{BoxFuture, FutureExt};
 use futures_util::stream::{self, StreamExt};
@@ -14,13 +16,15 @@ use lumen_core::{
 };
 use lumen_download::report::finalize_folder;
 use lumen_download::{VideoError, VideoJob, VideoRunner};
+use lumen_youtube::reason::classify;
+use lumen_youtube::url::{parse_target, Target};
 use serde_json::Value;
 
 use crate::error::HarbizError;
 use crate::parse::{Parsed, Workout};
 use crate::planner::{
-    course_dir, plan_workouts, video_exists, PlannedExercise, PlannedWorkout, COURSE_TITLE,
-    DESCRIPTION_FILE, LEGACY_WORKOUT_FILE, WORKOUT_FILE,
+    course_dir, find_video, plan_workouts, video_exists, PlannedExercise, PlannedWorkout,
+    COURSE_TITLE, DESCRIPTION_FILE, LEGACY_WORKOUT_FILE, WORKOUT_FILE,
 };
 
 /// Platform id used in reports and by the app shell.
@@ -31,11 +35,52 @@ pub struct WorkoutDownloader<'a> {
     pub sink: &'a dyn CourseProgressSink,
     pub cancel: &'a CancelFlag,
     pub options: DownloadOptions,
+    /// Pause after each video request so a long agenda is not a burst.
+    pub pace: std::time::Duration,
+}
+
+/// YouTube asks to sign in after a burst of requests; asking again only
+/// prolongs it, so the run stops after this many bot checks in a row.
+const BOT_CHECK_LIMIT: u32 = 3;
+
+/// What this run already learned about a YouTube video, so a video that many
+/// workouts share is asked for once.
+#[derive(Clone)]
+enum Seen {
+    Saved(PathBuf),
+    Unavailable(&'static str),
 }
 
 struct RunContext {
     total: u32,
     finished: AtomicU32,
+    seen: Mutex<HashMap<String, Seen>>,
+    bot_checks: AtomicU32,
+    blocked: AtomicBool,
+    not_attempted: AtomicU32,
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// The report keeps the video id in the link (queries are stripped from every
+/// other URL, and a YouTube watch link is useless without `v=`).
+fn video_issue(
+    severity: Severity,
+    kind: IssueKind,
+    label: &str,
+    url: &str,
+    id: Option<&str>,
+    message: String,
+) -> Issue {
+    let mut issue = Issue::new(kind, severity, Some(label), Some(url), message);
+    if let Some(id) = id {
+        issue.url = Some(format!("https://youtu.be/{id}"));
+    }
+    issue
 }
 
 struct WorkoutOutcome {
@@ -218,6 +263,10 @@ impl WorkoutDownloader<'_> {
         let ctx = RunContext {
             total,
             finished: AtomicU32::new(0),
+            seen: Mutex::new(HashMap::new()),
+            bot_checks: AtomicU32::new(0),
+            blocked: AtomicBool::new(false),
+            not_attempted: AtomicU32::new(0),
         };
         let parallel = self.options.max_parallel_lessons.max(1);
         let units: Vec<BoxFuture<'_, WorkoutOutcome>> = plan
@@ -235,6 +284,22 @@ impl WorkoutDownloader<'_> {
                 report.completed_lessons += 1;
             }
             outcome.issues.into_iter().for_each(|i| report.push(i));
+        }
+        if ctx.blocked.load(Ordering::SeqCst) {
+            let left = ctx.not_attempted.load(Ordering::SeqCst);
+            let skipped = match left {
+                0 => String::new(),
+                1 => ", so 1 video was not attempted".to_string(),
+                n => format!(", so {n} videos were not attempted"),
+            };
+            report.push(Issue::error(
+                IssueKind::Course,
+                None,
+                None,
+                format!(
+                    "YouTube asked to sign in (bot check) {BOT_CHECK_LIMIT} times in a row{skipped}: try again later and press Update, what is already downloaded is kept"
+                ),
+            ));
         }
         report.cancelled = self.cancel.is_cancelled();
         finalize_folder(&dir, &mut report);
@@ -356,6 +421,50 @@ impl WorkoutDownloader<'_> {
         url: &str,
         issues: &mut Vec<Issue>,
     ) {
+        let label = workout.label.as_str();
+        let id = match parse_target(url) {
+            Ok(Target::Video(id)) => Some(id),
+            _ => None,
+        };
+        let known = id.as_ref().and_then(|id| lock(&ctx.seen).get(id).cloned());
+        match known {
+            Some(Seen::Saved(source)) => {
+                let target = workout.dir.join(format!(
+                    "{}.{}",
+                    planned.stem,
+                    source.extension().and_then(|e| e.to_str()).unwrap_or("mp4")
+                ));
+                let copied = std::fs::hard_link(&source, &target)
+                    .or_else(|_| std::fs::copy(&source, &target).map(|_| ()));
+                if let Err(e) = copied {
+                    issues.push(video_issue(
+                        Severity::Error,
+                        IssueKind::Video,
+                        label,
+                        url,
+                        id.as_deref(),
+                        format!("{}: cannot reuse the downloaded video: {e}", planned.stem),
+                    ));
+                }
+                return;
+            }
+            Some(Seen::Unavailable(reason)) => {
+                issues.push(video_issue(
+                    Severity::Warning,
+                    IssueKind::VideoNotResolved,
+                    label,
+                    url,
+                    id.as_deref(),
+                    format!("{}: {reason}", planned.stem),
+                ));
+                return;
+            }
+            None => {}
+        }
+        if ctx.blocked.load(Ordering::SeqCst) {
+            ctx.not_attempted.fetch_add(1, Ordering::SeqCst);
+            return;
+        }
         let job = VideoJob {
             url: url.to_string(),
             referer: None,
@@ -365,22 +474,80 @@ impl WorkoutDownloader<'_> {
                 .dir
                 .join(format!("{}.%(ext)s", planned.stem.replace('%', "%%"))),
         };
-        let label = workout.label.as_str();
         let on_percent = |p: f32| self.emit(ctx, workout, p);
         match self.videos.download(&job, self.cancel, &on_percent).await {
-            Ok(()) if video_exists(&workout.dir, planned.number) => {}
-            Ok(()) => issues.push(Issue::error(
-                IssueKind::Video,
-                Some(label),
-                Some(url),
-                "yt-dlp finished but no video file was found",
-            )),
+            Ok(()) => match find_video(&workout.dir, planned.number) {
+                Some(path) => {
+                    ctx.bot_checks.store(0, Ordering::SeqCst);
+                    if let Some(id) = id {
+                        lock(&ctx.seen).insert(id, Seen::Saved(path));
+                    }
+                }
+                None => issues.push(video_issue(
+                    Severity::Error,
+                    IssueKind::Video,
+                    label,
+                    url,
+                    id.as_deref(),
+                    "yt-dlp finished but no video file was found".to_string(),
+                )),
+            },
             Err(VideoError::Cancelled) => {}
-            Err(e) => issues.push(Issue::error(
+            Err(e) => self.video_failed(ctx, label, planned, url, id, &e.to_string(), issues),
+        }
+        if !self.pace.is_zero() {
+            tokio::time::sleep(self.pace).await;
+        }
+    }
+
+    /// A video that no longer exists is a warning (nothing can fix it from
+    /// here); a bot check is an error that stops the run after a few in a row;
+    /// anything else is an error with yt-dlp's own words.
+    #[allow(clippy::too_many_arguments)]
+    fn video_failed(
+        &self,
+        ctx: &RunContext,
+        label: &str,
+        planned: &PlannedExercise,
+        url: &str,
+        id: Option<String>,
+        message: &str,
+        issues: &mut Vec<Issue>,
+    ) {
+        match classify(message) {
+            Some(reason) if reason.permanent => {
+                if let Some(id) = &id {
+                    lock(&ctx.seen).insert(id.clone(), Seen::Unavailable(reason.text));
+                }
+                issues.push(video_issue(
+                    Severity::Warning,
+                    IssueKind::VideoNotResolved,
+                    label,
+                    url,
+                    id.as_deref(),
+                    format!("{}: {}", planned.stem, reason.text),
+                ));
+            }
+            Some(reason) => {
+                issues.push(video_issue(
+                    Severity::Error,
+                    IssueKind::Video,
+                    label,
+                    url,
+                    id.as_deref(),
+                    format!("{}: {}", planned.stem, reason.text),
+                ));
+                if ctx.bot_checks.fetch_add(1, Ordering::SeqCst) + 1 >= BOT_CHECK_LIMIT {
+                    ctx.blocked.store(true, Ordering::SeqCst);
+                }
+            }
+            None => issues.push(video_issue(
+                Severity::Error,
                 IssueKind::Video,
-                Some(label),
-                Some(url),
-                e.to_string(),
+                label,
+                url,
+                id.as_deref(),
+                message.to_string(),
             )),
         }
     }
@@ -396,11 +563,14 @@ mod tests {
     use lumen_download::{VideoError, VideoJob};
     use serde_json::{json, Value};
     use std::sync::Mutex;
+    use std::time::Duration;
 
     #[derive(Default)]
     struct FakeVideos {
         jobs: Mutex<Vec<VideoJob>>,
         fail_urls: Vec<String>,
+        /// Fails with exactly this yt-dlp message.
+        errors: Vec<(String, String)>,
         write_nothing: bool,
     }
 
@@ -424,6 +594,9 @@ mod tests {
             on_percent: &(dyn Fn(f32) + Send + Sync),
         ) -> Result<(), VideoError> {
             self.jobs.lock().unwrap().push(job.clone());
+            if let Some((_, message)) = self.errors.iter().find(|(url, _)| *url == job.url) {
+                return Err(VideoError::Failed(message.clone()));
+            }
             if self.fail_urls.contains(&job.url) {
                 return Err(VideoError::Failed("boom".to_string()));
             }
@@ -491,12 +664,23 @@ mod tests {
     }
 
     async fn run_with(videos: FakeVideos, parsed: &Parsed, root: &Path, cancel: CancelFlag) -> Run {
+        run_paced(videos, parsed, root, cancel, Duration::ZERO).await
+    }
+
+    async fn run_paced(
+        videos: FakeVideos,
+        parsed: &Parsed,
+        root: &Path,
+        cancel: CancelFlag,
+        pace: Duration,
+    ) -> Run {
         let sink = Sink::default();
         let report = WorkoutDownloader {
             videos: &videos,
             sink: &sink,
             cancel: &cancel,
             options: DownloadOptions::default(),
+            pace,
         }
         .run(parsed, root)
         .await
@@ -675,6 +859,167 @@ mod tests {
             .join("2026-06/2026-06-04 - Core/01. Plank.mp4")
             .is_file());
         assert!(!course.join(".complete").exists());
+    }
+
+    const A: &str = "aaaaaaaaaaa";
+    const B: &str = "bbbbbbbbbbb";
+    const C: &str = "ccccccccccc";
+    const D: &str = "ddddddddddd";
+    const E: &str = "eeeeeeeeeee";
+    const NOT_AVAILABLE: &str = "[youtube] x: This video is not available";
+    const BOT: &str = "[youtube] x: Sign in to confirm you\u{2019}re not a bot. Use --cookies-from-browser or --cookies for the authentication.";
+
+    fn url_of(id: &str) -> String {
+        format!("https://youtu.be/{id}")
+    }
+
+    fn class(id: &str, date: &str, videos: &[&str]) -> Workout {
+        let exercises = videos
+            .iter()
+            .enumerate()
+            .map(|(i, v)| exercise(&format!("Move {i}"), Some(&url_of(v))))
+            .collect();
+        workout(id, date, "t", exercises)
+    }
+
+    fn failing(ids: &[&str], message: &str) -> Vec<(String, String)> {
+        ids.iter()
+            .map(|id| (url_of(id), message.to_string()))
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn an_unavailable_video_is_a_warning_with_the_reason_and_the_full_link() {
+        let tmp = tempfile::tempdir().unwrap();
+        let videos = FakeVideos {
+            errors: failing(&[A], NOT_AVAILABLE),
+            ..FakeVideos::default()
+        };
+        let agenda = parsed(vec![class("w1", "2026-06-02", &[A, B])]);
+        let out = run_with(videos, &agenda, tmp.path(), CancelFlag::new()).await;
+        assert!(
+            out.report.complete,
+            "a video that no longer exists cannot block the course"
+        );
+        let notes: Vec<_> = out
+            .report
+            .issues
+            .iter()
+            .filter(|i| i.kind == IssueKind::VideoNotResolved)
+            .collect();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].severity, Severity::Warning);
+        assert!(notes[0].message.contains("01. Move 0"));
+        assert!(notes[0].message.contains("removed or unavailable video"));
+        assert_eq!(notes[0].url.as_deref(), Some(url_of(A).as_str()));
+    }
+
+    #[tokio::test]
+    async fn an_unavailable_video_is_asked_for_once_however_many_workouts_use_it() {
+        let tmp = tempfile::tempdir().unwrap();
+        let videos = FakeVideos {
+            errors: failing(&[A], NOT_AVAILABLE),
+            ..FakeVideos::default()
+        };
+        let agenda = parsed(vec![
+            class("w1", "2026-06-02", &[A]),
+            class("w2", "2026-06-04", &[A]),
+        ]);
+        let out = run_with(videos, &agenda, tmp.path(), CancelFlag::new()).await;
+        assert_eq!(out.videos.urls(), [url_of(A)]);
+        let warnings = out
+            .report
+            .issues
+            .iter()
+            .filter(|i| i.kind == IssueKind::VideoNotResolved)
+            .count();
+        assert_eq!(warnings, 2, "every place it appears is still reported");
+    }
+
+    #[tokio::test]
+    async fn a_video_used_by_several_workouts_is_downloaded_once_and_copied() {
+        let tmp = tempfile::tempdir().unwrap();
+        let agenda = parsed(vec![
+            class("w1", "2026-06-02", &[A]),
+            class("w2", "2026-06-04", &[A]),
+        ]);
+        let out = run(&agenda, tmp.path()).await;
+        assert_eq!(out.videos.urls(), [url_of(A)]);
+        let course = course_dir(tmp.path());
+        for dir in ["2026-06/2026-06-02 - t", "2026-06/2026-06-04 - t"] {
+            let copy = std::fs::read_to_string(course.join(dir).join("01. Move 0.mp4")).unwrap();
+            assert_eq!(copy, "video");
+        }
+        assert!(out.report.complete && out.report.issues.is_empty());
+    }
+
+    #[tokio::test]
+    async fn three_bot_checks_in_a_row_stop_the_run_with_one_clear_error() {
+        let tmp = tempfile::tempdir().unwrap();
+        let videos = FakeVideos {
+            errors: failing(&[A, B, C, D, E], BOT),
+            ..FakeVideos::default()
+        };
+        let agenda = parsed(vec![class("w1", "2026-06-02", &[A, B, C, D, E])]);
+        let out = run_with(videos, &agenda, tmp.path(), CancelFlag::new()).await;
+        assert_eq!(
+            out.videos.urls().len(),
+            3,
+            "it stops asking YouTube after the third"
+        );
+        assert!(!out.report.complete);
+        let video_errors: Vec<_> = out
+            .report
+            .issues
+            .iter()
+            .filter(|i| i.kind == IssueKind::Video && i.severity == Severity::Error)
+            .collect();
+        assert_eq!(video_errors.len(), 3);
+        assert!(video_errors[0].message.contains("bot check"));
+        let course_errors: Vec<_> = out
+            .report
+            .issues
+            .iter()
+            .filter(|i| i.kind == IssueKind::Course && i.severity == Severity::Error)
+            .collect();
+        assert_eq!(course_errors.len(), 1);
+        assert!(course_errors[0]
+            .message
+            .contains("2 videos were not attempted"));
+        assert!(course_errors[0].message.contains("try again later"));
+    }
+
+    #[tokio::test]
+    async fn a_success_resets_the_bot_check_count() {
+        let tmp = tempfile::tempdir().unwrap();
+        let videos = FakeVideos {
+            errors: failing(&[A, B, D, E], BOT),
+            ..FakeVideos::default()
+        };
+        let agenda = parsed(vec![class("w1", "2026-06-02", &[A, B, C, D, E])]);
+        let out = run_with(videos, &agenda, tmp.path(), CancelFlag::new()).await;
+        assert_eq!(out.videos.urls().len(), 5);
+        assert!(out
+            .report
+            .issues
+            .iter()
+            .all(|i| i.kind != IssueKind::Course));
+    }
+
+    #[tokio::test]
+    async fn downloads_are_paced_to_stay_polite_with_youtube() {
+        let tmp = tempfile::tempdir().unwrap();
+        let agenda = parsed(vec![class("w1", "2026-06-02", &[A, B])]);
+        let started = std::time::Instant::now();
+        run_paced(
+            FakeVideos::default(),
+            &agenda,
+            tmp.path(),
+            CancelFlag::new(),
+            Duration::from_millis(80),
+        )
+        .await;
+        assert!(started.elapsed() >= Duration::from_millis(80));
     }
 
     #[tokio::test]

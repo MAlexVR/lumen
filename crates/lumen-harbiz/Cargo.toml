@@ -19,6 +19,7 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["net", "time", "sync", "macros", "rt"] }
 tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-webpki-roots"] }
 webpki-roots = "0.26"
+lumen-youtube.workspace = true
 
 [dev-dependencies]
 lumen-download = { workspace = true, features = ["test-support"] }

@@ -121,21 +121,23 @@ fn is_format_leftover(stem: &str) -> bool {
         .is_some_and(|(_, digits)| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()))
 }
 
+/// The finished video of exercise `number` in `dir`, if there is one.
+pub fn find_video(dir: &Path, number: usize) -> Option<PathBuf> {
+    let prefix = format!("{number:02}. ");
+    let entries = std::fs::read_dir(dir).ok()?;
+    entries.flatten().find_map(|entry| {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let (stem, ext) = name.rsplit_once('.')?;
+        (name.starts_with(&prefix)
+            && VIDEO_EXTS.contains(&ext.to_ascii_lowercase().as_str())
+            && !is_format_leftover(stem))
+        .then(|| entry.path())
+    })
+}
+
 /// True when a finished video for exercise `number` exists in `dir`.
 pub fn video_exists(dir: &Path, number: usize) -> bool {
-    let prefix = format!("{number:02}. ");
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return false;
-    };
-    entries.flatten().any(|entry| {
-        let name = entry.file_name().to_string_lossy().into_owned();
-        let Some((stem, ext)) = name.rsplit_once('.') else {
-            return false;
-        };
-        name.starts_with(&prefix)
-            && VIDEO_EXTS.contains(&ext.to_ascii_lowercase().as_str())
-            && !is_format_leftover(stem)
-    })
+    find_video(dir, number).is_some()
 }
 
 #[cfg(test)]

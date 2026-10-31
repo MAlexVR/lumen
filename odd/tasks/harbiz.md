@@ -24,8 +24,8 @@ Branch: `local/harbiz` (never pushed, never merged to main). Delivery: single lo
 - T7 (S1,S3) UI flow (agenda card shows workouts / new to download / date range; Update re-runs incrementally), i18n es+en, mock, screenshots reviewed at 1280x800 and 760x520: inline, done (RED 8 failed -> GREEN vitest 357 passed, svelte-check 0 errors), commit c0178d8
 - T8 (S2) local install from the branch: inline, done (release build from repo root; installed ~/.local/bin/lumen, previous binary kept as lumen.prev; binary contains harbiz commands; real window/download NOT exercised), commit TBD
 
-- T9 (S6,S8) layout: class = workout. `Harbiz Training/<YYYY-MM>/<date - title>/NN. exercise.mp4`, `Description.html`, hidden `.workout.json`; old flat folders are moved into their month: inline, done (RED compile errors -> GREEN harbiz 64, core scanner test proves 3 classes for 5 videos, vitest 362), commit TBD9
-- T10 (S9) failures: classify unavailable videos as warnings, dedupe repeated videos, stop on repeated bot checks, pace requests, full video URL in the report: inline, pending
+- T9 (S6,S8) layout: class = workout. `Harbiz Training/<YYYY-MM>/<date - title>/NN. exercise.mp4`, `Description.html`, hidden `.workout.json`; old flat folders are moved into their month: inline, done (RED compile errors -> GREEN harbiz 64, core scanner test proves 3 classes for 5 videos, vitest 362), commit 298b485
+- T10 (S9) failures: unavailable videos are warnings (reused lumen_youtube::reason::classify), repeated videos are asked once and reused, run stops after 3 bot checks in a row with one error, 1.5 s pace, full youtu.be link in the report: inline, done (RED compile error -> GREEN harbiz 70, workspace rust 765), commit TBD10
 
 ## Log
 - L1 (2026-10-30): "quiero que le agregues la funcionalidad a lumen para harbiz con ODD esta funcionalidad no la quiero en el repo solo en local, tambien quiero tener la opción de descargar los entrenamientos de fechas actualizadas que hayan sido programadas y que no tenga de forma local"
