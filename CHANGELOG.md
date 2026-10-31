@@ -3,7 +3,7 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
-## [0.6.4] - 2026-10-31
+## [0.6.5] - 2026-10-31
 
 This is the first release since 0.4.1: it ships everything listed under 0.5.0 to 0.6.3 below. The highlights:
 
