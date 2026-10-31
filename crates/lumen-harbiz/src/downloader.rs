@@ -350,7 +350,14 @@ impl WorkoutDownloader<'_> {
             ));
             return issues;
         }
-        if let Err(e) = std::fs::create_dir_all(&workout.dir) {
+        // A workout already in the library is completed in place; a new one
+        // downloads into a hidden folder and is published when it is done.
+        let work: &Path = if workout.dir.is_dir() {
+            &workout.dir
+        } else {
+            &workout.staging_dir
+        };
+        if let Err(e) = std::fs::create_dir_all(work) {
             issues.push(Issue::error(
                 IssueKind::Course,
                 Some(label),
@@ -363,7 +370,7 @@ impl WorkoutDownloader<'_> {
         let metadata = serde_json::to_string_pretty(&workout.workout)
             .map_err(|e| e.to_string())
             .and_then(|json| {
-                std::fs::write(workout.dir.join(WORKOUT_FILE), json).map_err(|e| e.to_string())
+                std::fs::write(work.join(WORKOUT_FILE), json).map_err(|e| e.to_string())
             });
         if let Err(e) = metadata {
             issues.push(Issue::error(
@@ -374,7 +381,7 @@ impl WorkoutDownloader<'_> {
             ));
         }
         let page = workout_description(&workout.workout, &workout.exercises);
-        if let Err(e) = std::fs::write(workout.dir.join(DESCRIPTION_FILE), page) {
+        if let Err(e) = std::fs::write(work.join(DESCRIPTION_FILE), page) {
             issues.push(Issue::error(
                 IssueKind::Course,
                 Some(label),
@@ -400,23 +407,64 @@ impl WorkoutDownloader<'_> {
                 ));
                 continue;
             };
-            if video_exists(&workout.dir, planned.number) {
+            if video_exists(work, planned.number) {
                 continue;
             }
             lumen_download::wait_if_paused(self.cancel).await;
             if self.cancel.is_cancelled() {
                 continue;
             }
-            self.run_video(ctx, workout, planned, url, &mut issues)
+            self.run_video(ctx, workout, work, planned, url, &mut issues)
                 .await;
         }
+        if work != workout.dir.as_path() {
+            self.publish(ctx, workout, work, &mut issues);
+        }
         issues
+    }
+
+    /// Moves a finished hidden folder into place so the library lists the class.
+    /// A class where every attempt failed, or a cancelled one, stays hidden and
+    /// the next run resumes from it.
+    fn publish(
+        &self,
+        ctx: &RunContext,
+        workout: &PlannedWorkout,
+        work: &Path,
+        issues: &mut Vec<Issue>,
+    ) {
+        let has_video = workout
+            .exercises
+            .iter()
+            .any(|e| find_video(work, e.number).is_some());
+        let failed = issues.iter().any(|i| i.severity == Severity::Error);
+        if self.cancel.is_cancelled() || (failed && !has_video) {
+            return;
+        }
+        match std::fs::rename(work, &workout.dir) {
+            Ok(()) => {
+                for seen in lock(&ctx.seen).values_mut() {
+                    if let Seen::Saved(path) = seen {
+                        if let Ok(rest) = path.strip_prefix(work) {
+                            *path = workout.dir.join(rest);
+                        }
+                    }
+                }
+            }
+            Err(e) => issues.push(Issue::error(
+                IssueKind::Course,
+                Some(workout.label.as_str()),
+                None,
+                format!("cannot publish the workout: {e}"),
+            )),
+        }
     }
 
     async fn run_video(
         &self,
         ctx: &RunContext,
         workout: &PlannedWorkout,
+        dir: &Path,
         planned: &PlannedExercise,
         url: &str,
         issues: &mut Vec<Issue>,
@@ -429,7 +477,7 @@ impl WorkoutDownloader<'_> {
         let known = id.as_ref().and_then(|id| lock(&ctx.seen).get(id).cloned());
         match known {
             Some(Seen::Saved(source)) => {
-                let target = workout.dir.join(format!(
+                let target = dir.join(format!(
                     "{}.{}",
                     planned.stem,
                     source.extension().and_then(|e| e.to_str()).unwrap_or("mp4")
@@ -470,13 +518,11 @@ impl WorkoutDownloader<'_> {
             referer: None,
             user_agent: None,
             // `%` is yt-dlp's template escape character.
-            output_template: workout
-                .dir
-                .join(format!("{}.%(ext)s", planned.stem.replace('%', "%%"))),
+            output_template: dir.join(format!("{}.%(ext)s", planned.stem.replace('%', "%%"))),
         };
         let on_percent = |p: f32| self.emit(ctx, workout, p);
         match self.videos.download(&job, self.cancel, &on_percent).await {
-            Ok(()) => match find_video(&workout.dir, planned.number) {
+            Ok(()) => match find_video(dir, planned.number) {
                 Some(path) => {
                     ctx.bot_checks.store(0, Ordering::SeqCst);
                     if let Some(id) = id {
@@ -572,6 +618,10 @@ mod tests {
         /// Fails with exactly this yt-dlp message.
         errors: Vec<(String, String)>,
         write_nothing: bool,
+        /// Records, at every call, whether this folder is already visible.
+        watch_dir: Option<PathBuf>,
+        visible: Mutex<Vec<bool>>,
+        cancel_on_first: Option<CancelFlag>,
     }
 
     impl FakeVideos {
@@ -594,6 +644,12 @@ mod tests {
             on_percent: &(dyn Fn(f32) + Send + Sync),
         ) -> Result<(), VideoError> {
             self.jobs.lock().unwrap().push(job.clone());
+            if let Some(dir) = &self.watch_dir {
+                self.visible.lock().unwrap().push(dir.exists());
+            }
+            if let Some(cancel) = &self.cancel_on_first {
+                cancel.cancel();
+            }
             if let Some((_, message)) = self.errors.iter().find(|(url, _)| *url == job.url) {
                 return Err(VideoError::Failed(message.clone()));
             }
@@ -1020,6 +1076,123 @@ mod tests {
         )
         .await;
         assert!(started.elapsed() >= Duration::from_millis(80));
+    }
+
+    fn final_dir(tmp: &Path, date: &str) -> PathBuf {
+        course_dir(tmp).join(&date[..7]).join(format!("{date} - t"))
+    }
+
+    fn staging_dir(tmp: &Path, date: &str) -> PathBuf {
+        course_dir(tmp)
+            .join(&date[..7])
+            .join(format!(".{date} - t.downloading"))
+    }
+
+    #[tokio::test]
+    async fn a_class_appears_in_the_library_only_when_it_is_finished() {
+        let tmp = tempfile::tempdir().unwrap();
+        let done = final_dir(tmp.path(), "2026-06-02");
+        let videos = FakeVideos {
+            watch_dir: Some(done.clone()),
+            ..FakeVideos::default()
+        };
+        let agenda = parsed(vec![class("w1", "2026-06-02", &[A, B])]);
+        let out = run_with(videos, &agenda, tmp.path(), CancelFlag::new()).await;
+        assert_eq!(*out.videos.visible.lock().unwrap(), [false, false]);
+        assert!(done.join("01. Move 0.mp4").is_file() && done.join("02. Move 1.mp4").is_file());
+        assert!(done.join("Description.html").is_file());
+        assert!(!staging_dir(tmp.path(), "2026-06-02").exists());
+    }
+
+    #[tokio::test]
+    async fn an_interrupted_class_resumes_from_its_hidden_folder() {
+        let tmp = tempfile::tempdir().unwrap();
+        let hidden = staging_dir(tmp.path(), "2026-06-02");
+        std::fs::create_dir_all(&hidden).unwrap();
+        std::fs::write(hidden.join("01. Move 0.mp4"), "kept").unwrap();
+        let agenda = parsed(vec![class("w1", "2026-06-02", &[A, B])]);
+        let out = run(&agenda, tmp.path()).await;
+        assert_eq!(out.videos.urls(), [url_of(B)]);
+        let done = final_dir(tmp.path(), "2026-06-02");
+        assert_eq!(
+            std::fs::read_to_string(done.join("01. Move 0.mp4")).unwrap(),
+            "kept"
+        );
+        assert!(done.join("02. Move 1.mp4").is_file());
+        assert!(!hidden.exists());
+    }
+
+    #[tokio::test]
+    async fn a_class_where_nothing_could_be_downloaded_stays_hidden() {
+        let tmp = tempfile::tempdir().unwrap();
+        let videos = FakeVideos {
+            errors: failing(&[A], BOT),
+            ..FakeVideos::default()
+        };
+        let agenda = parsed(vec![class("w1", "2026-06-02", &[A])]);
+        let out = run_with(videos, &agenda, tmp.path(), CancelFlag::new()).await;
+        assert!(!final_dir(tmp.path(), "2026-06-02").exists());
+        assert!(staging_dir(tmp.path(), "2026-06-02").is_dir());
+        assert_eq!(out.report.error_count(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_class_whose_videos_no_longer_exist_is_still_published_with_its_description() {
+        let tmp = tempfile::tempdir().unwrap();
+        let videos = FakeVideos {
+            errors: failing(&[A], NOT_AVAILABLE),
+            ..FakeVideos::default()
+        };
+        let agenda = parsed(vec![class("w1", "2026-06-02", &[A])]);
+        let out = run_with(videos, &agenda, tmp.path(), CancelFlag::new()).await;
+        assert!(final_dir(tmp.path(), "2026-06-02")
+            .join("Description.html")
+            .is_file());
+        assert!(out.report.complete);
+    }
+
+    #[tokio::test]
+    async fn a_cancelled_class_is_not_published_half_done() {
+        let tmp = tempfile::tempdir().unwrap();
+        let cancel = CancelFlag::new();
+        let videos = FakeVideos {
+            cancel_on_first: Some(cancel.clone()),
+            ..FakeVideos::default()
+        };
+        let agenda = parsed(vec![class("w1", "2026-06-02", &[A, B])]);
+        run_with(videos, &agenda, tmp.path(), cancel).await;
+        assert!(!final_dir(tmp.path(), "2026-06-02").exists());
+        assert!(staging_dir(tmp.path(), "2026-06-02")
+            .join("01. Move 0.mp4")
+            .is_file());
+    }
+
+    #[tokio::test]
+    async fn a_class_already_in_the_library_is_completed_in_place() {
+        let tmp = tempfile::tempdir().unwrap();
+        let done = final_dir(tmp.path(), "2026-06-02");
+        std::fs::create_dir_all(&done).unwrap();
+        std::fs::write(done.join("01. Move 0.mp4"), "kept").unwrap();
+        let agenda = parsed(vec![class("w1", "2026-06-02", &[A, B])]);
+        let out = run(&agenda, tmp.path()).await;
+        assert_eq!(out.videos.urls(), [url_of(B)]);
+        assert!(done.join("02. Move 1.mp4").is_file());
+        assert!(!staging_dir(tmp.path(), "2026-06-02").exists());
+    }
+
+    #[tokio::test]
+    async fn a_video_shared_with_a_published_class_can_still_be_reused() {
+        let tmp = tempfile::tempdir().unwrap();
+        let agenda = parsed(vec![
+            class("w1", "2026-06-02", &[A]),
+            class("w2", "2026-07-04", &[A]),
+        ]);
+        let out = run(&agenda, tmp.path()).await;
+        assert_eq!(out.videos.urls(), [url_of(A)]);
+        assert!(final_dir(tmp.path(), "2026-07-04")
+            .join("01. Move 0.mp4")
+            .is_file());
+        assert!(out.report.issues.is_empty());
     }
 
     #[tokio::test]

@@ -46,6 +46,9 @@ pub struct PlannedWorkout {
     pub dir: PathBuf,
     /// Where earlier versions put the workout, straight under the course.
     pub legacy_dir: PathBuf,
+    /// Hidden folder a new workout downloads into; it is published as `dir`
+    /// when done, so the library never lists a class that is still arriving.
+    pub staging_dir: PathBuf,
     /// Folder name, used as the report label.
     pub label: String,
     pub workout: Workout,
@@ -75,6 +78,7 @@ pub fn plan_workouts(course_dir: &Path, workouts: &[Workout]) -> Vec<PlannedWork
             PlannedWorkout {
                 order,
                 legacy_dir: course_dir.join(&label),
+                staging_dir: month_dir.join(format!(".{label}.downloading")),
                 month_dir,
                 dir,
                 label,
@@ -191,6 +195,18 @@ mod tests {
         assert_eq!(plan[0].dir, dir.join("2026-06/2026-06-02 - Hip_ mobility_"));
         assert_eq!(plan[0].legacy_dir, dir.join("2026-06-02 - Hip_ mobility_"));
         assert_eq!(plan[0].order, 0);
+    }
+
+    #[test]
+    fn a_new_workout_downloads_into_a_hidden_folder_next_to_its_final_one() {
+        let plan = plan_workouts(
+            Path::new("/lib"),
+            &[workout("a", "2026-06-02", "Legs", vec![])],
+        );
+        assert_eq!(
+            plan[0].staging_dir,
+            Path::new("/lib/2026-06/.2026-06-02 - Legs.downloading")
+        );
     }
 
     #[test]
