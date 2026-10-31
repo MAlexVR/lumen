@@ -6,8 +6,10 @@
 pub mod client;
 pub mod credentials;
 pub mod ddp;
+pub mod downloader;
 pub mod error;
 pub mod parse;
+pub mod planner;
 
 pub use client::{login, Connector, DdpConnection, DdpError, HarbizApi, HarbizClient};
 pub use credentials::{Login, Session};
