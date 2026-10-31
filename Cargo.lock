@@ -2293,6 +2293,7 @@ dependencies = [
  "lumen-core",
  "lumen-download",
  "lumen-goldenlife",
+ "lumen-harbiz",
  "lumen-hotmart",
  "lumen-media",
  "lumen-pluralsight",

@@ -1,5 +1,6 @@
 mod downloads;
 mod goldenlife;
+mod harbiz;
 mod hotmart;
 mod library_delete;
 mod library_open;
@@ -26,6 +27,7 @@ use downloads::{
     RunningDownload, SessionStatus,
 };
 use goldenlife::{DefaultGoldenlifeFactory, GoldenlifeLoginOutcome, GoldenlifeService};
+use harbiz::{DefaultHarbizFactory, HarbizLoginOutcome, HarbizService};
 use hotmart::{DefaultHotmartFactory, HotmartLoginOutcome, HotmartService};
 use library_delete::{DeleteCode, DeleteError, DeleteOutcome, DeletePreview, DeleteTarget};
 use library_open::{OpenCode, OpenError};
@@ -203,6 +205,9 @@ fn platform_busy(
 }
 
 fn platform_busy_in(app: &AppHandle, platform: &str) -> Result<bool, DeleteError> {
+    if platform == "harbiz" {
+        return Ok(!app.state::<Arc<HarbizService>>().running().is_empty());
+    }
     platform_busy(
         platform,
         &app.state::<Arc<SkoolService>>(),
@@ -847,6 +852,58 @@ fn goldenlife_downloads_running(
     goldenlife.running()
 }
 
+#[tauri::command]
+async fn harbiz_login_credentials(
+    email: String,
+    password: String,
+    core: State<'_, Arc<AppCore>>,
+    harbiz: State<'_, Arc<HarbizService>>,
+) -> Result<HarbizLoginOutcome, DownloadError> {
+    harbiz
+        .login_with_credentials(&email, &password, &core.library_root())
+        .await
+}
+
+#[tauri::command]
+fn harbiz_session_status(
+    harbiz: State<'_, Arc<HarbizService>>,
+) -> Result<SessionStatus, DownloadError> {
+    harbiz.status()
+}
+
+#[tauri::command]
+fn harbiz_logout(harbiz: State<'_, Arc<HarbizService>>) -> Result<(), DownloadError> {
+    harbiz.logout()
+}
+
+#[tauri::command]
+async fn harbiz_courses(
+    core: State<'_, Arc<AppCore>>,
+    harbiz: State<'_, Arc<HarbizService>>,
+) -> Result<Vec<lumen_harbiz::HarbizCourseInfo>, DownloadError> {
+    harbiz.courses(&core.library_root()).await
+}
+
+#[tauri::command]
+async fn harbiz_download_start(
+    course: String,
+    app: AppHandle,
+    core: State<'_, Arc<AppCore>>,
+    harbiz: State<'_, Arc<HarbizService>>,
+) -> Result<String, DownloadError> {
+    harbiz.start_download(&course, core.library_root(), Arc::new(TauriEvents { app }))
+}
+
+#[tauri::command]
+fn harbiz_download_cancel(id: String, harbiz: State<'_, Arc<HarbizService>>) -> bool {
+    harbiz.cancel(&id)
+}
+
+#[tauri::command]
+fn harbiz_downloads_running(harbiz: State<'_, Arc<HarbizService>>) -> Vec<RunningDownload> {
+    harbiz.running()
+}
+
 /// Cached video thumbnails: answers at once with ready/pending/unavailable;
 /// finished items arrive as `thumbnails://ready` events.
 #[tauri::command]
@@ -1004,6 +1061,10 @@ pub fn run() {
                 session::SessionStore::for_platform(&data_dir, "goldenlife"),
                 Arc::new(DefaultGoldenlifeFactory::new(ytdlp.clone())),
             )));
+            app.manage(Arc::new(HarbizService::new(
+                session::SessionStore::for_platform(&data_dir, "harbiz"),
+                Arc::new(DefaultHarbizFactory::new(ytdlp.clone())),
+            )));
             app.manage(Arc::new(PluralsightService::new(
                 session::SessionStore::for_platform(&data_dir, "pluralsight"),
                 Arc::new(DefaultPluralsightFactory::new(ytdlp)),
@@ -1072,6 +1133,13 @@ pub fn run() {
             goldenlife_download_start,
             goldenlife_download_cancel,
             goldenlife_downloads_running,
+            harbiz_login_credentials,
+            harbiz_session_status,
+            harbiz_logout,
+            harbiz_courses,
+            harbiz_download_start,
+            harbiz_download_cancel,
+            harbiz_downloads_running,
             thumbnails_request,
             thumbnails_cancel,
             thumbnails_status,

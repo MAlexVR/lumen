@@ -16,8 +16,8 @@ Branch: `local/harbiz` (never pushed, never merged to main). Delivery: single lo
 - T2 (S3,S5) DDP client (login, resume, paged past + single upcoming call): inline, done (RED 8+1+3 failed -> GREEN 29 passed; live: login ok, 66 workouts, 5 photo check-ins, 2026-06-01..2026-10-31), commit 954284b
 - T3 (S3,S6) planner + downloader with per-file skip: inline, done (RED 10+13 failed -> GREEN 53 passed), commit d1dc945
 - T4 (S1) CoursePlatform impl + course listing with local/pending counts: inline, done (RED 7 failed -> GREEN 60 passed), commit 0fb3ade
-- T5 (S6) lumen-core LibraryPlatform::Harbiz + scanner + delete target: inline, done (RED compile error + non-exhaustive match -> GREEN core 79, library_delete 14), commit TBD
-- T6 (S5) Tauri service + commands: inline, pending
+- T5 (S6) lumen-core LibraryPlatform::Harbiz + scanner + delete target: inline, done (RED compile error + non-exhaustive match -> GREEN core 79, library_delete 14), commit dfbd304
+- T6 (S5) Tauri service + commands: inline, done (RED 7 failed -> GREEN lumen 196 passed, clippy clean), commit TBD
 - T7 (S1) UI flow, i18n, mock: inline, pending
 - T8 (S2) local install from the branch: inline, pending
 
