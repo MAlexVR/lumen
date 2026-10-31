@@ -1,6 +1,6 @@
 <script lang="ts">
   // Video on black with custom controls, keyboard map and resume handling.
-  import { onDestroy } from "svelte";
+  import { onDestroy, type Snippet } from "svelte";
   import Icon from "../../lib/design/Icon.svelte";
   import { t } from "../../lib/i18n/index.svelte";
   import { afterEnd } from "../../lib/logic/loop";
@@ -24,8 +24,16 @@
     /** Repeat the video until the viewer moves on. */
     loop: boolean;
     onloop: () => void;
+    /** Quiet readout drawn over the video (it receives whether the viewer is idle). */
+    overlay?: Snippet<[boolean]>;
+    /** Marks the current set done (key S). */
+    onset?: () => void;
+    /** A video of this lesson started or resumed playing. */
+    onplaying?: () => void;
+    /** Replay at the end instead of moving on, like repeat but decided by the lesson. */
+    hold?: boolean;
   }
-  let { src, resumeAt, autoplay, theatre, onsave, onwatched, onended, onerror, onnext, onprev, ontheatre, loop, onloop }: Props =
+  let { src, resumeAt, autoplay, theatre, onsave, onwatched, onended, onerror, onnext, onprev, ontheatre, loop, onloop, overlay, onset, onplaying, hold = false }: Props =
     $props();
 
   let stage: HTMLElement | undefined = $state();
@@ -157,6 +165,8 @@
         return restart();
       case "toggle-loop":
         return onloop();
+      case "set-done":
+        return onset?.();
       case "seek":
         return seekBy(action.by);
       case "volume":
@@ -238,7 +248,10 @@
     onloadedmetadata={onMeta}
     ontimeupdate={onTime}
     onprogress={onTime}
-    onplay={() => (paused = false)}
+    onplay={() => {
+      paused = false;
+      onplaying?.();
+    }}
     onpause={() => {
       paused = true;
       save(true);
@@ -252,7 +265,7 @@
       save(true);
       if (!watchedSent) onwatched();
       watchedSent = true;
-      if (afterEnd(loop) === "replay" && video) {
+      if (afterEnd(loop || hold) === "replay" && video) {
         // Plays again only after the real end, so the whole clip is always shown.
         video.currentTime = 0;
         void video.play().catch(() => {});
@@ -270,6 +283,8 @@
       <Icon name="play" size={28} />
     </button>
   {/if}
+
+  {@render overlay?.(idle && !paused && !speedOpen)}
 
   {#if flash}<span class="flash num" aria-hidden="true">{flash}</span>{/if}
 

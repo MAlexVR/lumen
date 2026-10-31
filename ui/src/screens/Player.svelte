@@ -3,16 +3,20 @@
   import { untrack } from "svelte";
   import Icon from "../lib/design/Icon.svelte";
   import { t } from "../lib/i18n/index.svelte";
+  import { planFor } from "../lib/logic/exercisePlan";
   import { lessonVideos, stepVideo } from "../lib/logic/lessonVideos";
   import { flattenCourse, positionOf } from "../lib/logic/progress";
   import { wording } from "../lib/logic/videos";
+  import { completeSet, setProgress, shouldHold, startTimer, toggleTimer, undoSet } from "../lib/logic/workoutSession";
   import { app } from "../lib/state/app.svelte";
+  import { sessions } from "../lib/state/workoutSessions.svelte";
   import { href, navigate } from "../lib/state/router.svelte";
   import Description from "./player/Description.svelte";
   import DeleteDialog from "./library/DeleteDialog.svelte";
   import LessonList from "./player/LessonList.svelte";
   import VideoStage from "./player/VideoStage.svelte";
-  import type { Resource } from "../lib/types";
+  import type { ExercisePlan, Resource } from "../lib/types";
+  import WorkoutHud from "./player/WorkoutHud.svelte";
 
   let { group, lessonKey }: { group: string; lessonKey: string } = $props();
 
@@ -114,6 +118,24 @@
     go(upcoming, true);
   }
 
+  /** What the workout asks of each exercise (Harbiz only); empty for any other lesson. */
+  let plans = $state<ExercisePlan[]>([]);
+  const isWorkout = $derived(app.group(group)?.platform === "harbiz");
+  const session = $derived(sessions.get(lessonKey));
+
+  $effect(() => {
+    const key = lessonKey;
+    const video = item?.lesson.video;
+    untrack(() => (plans = []));
+    if (!isWorkout || !video) return;
+    void app.api
+      ?.workoutPlan(video)
+      .then((found) => {
+        if (key === lessonKey) plans = found;
+      })
+      .catch(() => {});
+  });
+
   /** Which of the lesson's videos is playing (a workout has one per exercise). */
   let videoIndex = $state(0);
   /** The viewer moved between this lesson's videos, so the new one starts by itself. */
@@ -124,6 +146,11 @@
   const current = $derived(videos[videoIndex]);
   const canPrev = $derived(videoIndex > 0 || !!prev);
   const canNext = $derived(videoIndex < videos.length - 1 || !!next);
+  const plan = $derived(current ? planFor(plans, current.path) : null);
+  const progress = $derived(plan ? setProgress(session, plan.number, plan.sets) : null);
+
+  const startWorkout = () => isWorkout && sessions.update(lessonKey, (s) => startTimer(s, Date.now()));
+  const markSet = () => plan && sessions.update(lessonKey, (s) => completeSet(s, plan.number, plan.sets));
   const files = $derived(item ? item.lesson.resources.filter((r) => r.kind !== "video") : []);
 
   function openResource(r: Resource) {
@@ -158,6 +185,20 @@
       </div>
 
       <div class="screen">
+        {#snippet hud(idle: boolean)}
+          <WorkoutHud
+            {session}
+            {plan}
+            {progress}
+            {idle}
+            hasNext={canNext}
+            ontimer={() => sessions.update(lessonKey, (s) => toggleTimer(s, Date.now()))}
+            onreset={() => sessions.reset(lessonKey)}
+            onset={markSet}
+            onundo={() => plan && sessions.update(lessonKey, (s) => undoSet(s, plan.number))}
+            onnext={() => step(1)}
+          />
+        {/snippet}
         {#if lesson.hasVideo && current}
           {#key `${lessonKey}|${videoIndex}`}
             <VideoStage
@@ -167,6 +208,10 @@
               {theatre}
               {loop}
               onloop={toggleLoop}
+              overlay={isWorkout ? hud : undefined}
+              onset={markSet}
+              onplaying={startWorkout}
+              hold={shouldHold(progress)}
               onsave={(s) => {
                 if (videoIndex === 0) void app.savePosition(group, lessonKey, s);
               }}
