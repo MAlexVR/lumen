@@ -305,7 +305,20 @@
       <button type="button" class="icon-btn close" onclick={() => (drawer = false)} aria-label={t("close")}>
         <Icon name="close" size={18} />
       </button>
-      <LessonList {group} course={item.course} currentKey={lessonKey} {watched} onpick={() => (drawer = false)} />
+      <LessonList
+        {group}
+        course={item.course}
+        currentKey={lessonKey}
+        {watched}
+        onpick={() => (drawer = false)}
+        {videos}
+        {videoIndex}
+        onvideo={(i) => {
+          videoIndex = i;
+          stepped = true;
+          videoError = null;
+        }}
+      />
     </aside>
   </div>
 {:else}

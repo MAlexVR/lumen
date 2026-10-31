@@ -63,6 +63,7 @@ export const es = {
   fwd10: "Avanzar 10 segundos",
   loop: "Repetir video hasta que avances",
   video_n_of: "Video {n} de {total}",
+  video_list: "Videos de esta clase",
   restart: "Reproducir desde el inicio",
   playback: "Reproducción",
   mute: "Silenciar",

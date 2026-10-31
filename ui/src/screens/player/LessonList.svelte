@@ -10,6 +10,7 @@
   import { wording } from "../../lib/logic/videos";
   import { app } from "../../lib/state/app.svelte";
   import { href } from "../../lib/state/router.svelte";
+  import type { LessonVideo } from "../../lib/logic/lessonVideos";
   import type { Course } from "../../lib/types";
 
   interface Props {
@@ -18,8 +19,12 @@
     currentKey: string;
     watched: ReadonlySet<string>;
     onpick?: () => void;
+    /** Videos of the lesson being played (a workout: one per exercise); listed under it. */
+    videos?: LessonVideo[];
+    videoIndex?: number;
+    onvideo?: (index: number) => void;
   }
-  let { group, course, currentKey, watched, onpick }: Props = $props();
+  let { group, course, currentKey, watched, onpick, videos = [], videoIndex = 0, onvideo }: Props = $props();
   let list: HTMLElement | undefined = $state();
   const stats = $derived(courseStats(course, watched));
   const g = $derived(app.group(group));
@@ -76,6 +81,20 @@
               <ItemMenu video label={displayTitle(lesson.title)} ondelete={() => deletion.openLesson(group, lesson.key)} />
             </span>
           </li>
+          {#if current && videos.length > 1}
+            <li class="vlist">
+              <ol aria-label={t("video_list")}>
+                {#each videos as video, i (video.path)}
+                  <li>
+                    <button type="button" aria-current={i === videoIndex ? "true" : undefined} onclick={() => onvideo?.(i)}>
+                      <span class="vnum num" aria-hidden="true">{i + 1}</span>
+                      <span class="vtitle">{video.title}</span>
+                    </button>
+                  </li>
+                {/each}
+              </ol>
+            </li>
+          {/if}
         {/each}
       </ol>
     </section>
@@ -176,5 +195,41 @@
     right: var(--s-1);
     top: 50%;
     transform: translateY(-50%);
+  }
+  /* An open menu must paint above the rows that follow it. */
+  .menu-slot:focus-within {
+    z-index: 10;
+  }
+  .vlist ol {
+    display: grid;
+    gap: 1px;
+    padding: 0 var(--s-3) var(--s-2) calc(var(--s-3) + 18px + var(--s-3));
+  }
+  .vlist button {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    gap: var(--s-2);
+    align-items: start;
+    width: 100%;
+    padding: var(--s-1) var(--s-2);
+    border-radius: var(--r-1);
+    font-size: var(--fs-xs);
+    line-height: 1.4;
+    text-align: left;
+    color: var(--text-muted);
+  }
+  .vlist button:hover,
+  .vlist button:focus-visible {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  .vlist button[aria-current="true"] {
+    color: var(--lumen);
+  }
+  .vnum {
+    color: var(--text-faint);
+  }
+  .vlist button[aria-current="true"] .vnum {
+    color: var(--lumen);
   }
 </style>
