@@ -275,6 +275,7 @@ impl Youtube {
         let total = downloads.len() as u32;
         let mut completed = 0u32;
         for entry in downloads {
+            lumen_download::wait_if_paused(cancel).await;
             if cancel.is_cancelled() {
                 report.cancelled = true;
                 break;
@@ -660,6 +661,31 @@ mod tests {
         assert!(!report.complete && !group.join(".complete").exists());
         assert!(!group.join("01 - Uno").exists() && !group.join("02 - Dos").exists());
         assert!(group.join("03 - Tres").is_dir());
+    }
+
+    #[tokio::test]
+    async fn a_paused_queue_holds_before_the_next_video_until_resumed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let doc = playlist(json!([{"id": V, "title": "Uno"}]));
+        let cancel = CancelFlag::new();
+        cancel.pause();
+        let tool = Arc::new(
+            FakeTool::new()
+                .with_probe(&list_url(), Ok(doc))
+                .with_fetch(crate::client::fake::write_media),
+        );
+        let rec = Rec::default();
+        let y = Youtube::new(tool.clone(), None);
+        let request = req(&list_url(), None, Quality::P720);
+        let run = y.download(&request, tmp.path(), &rec, &cancel);
+        tokio::pin!(run);
+        let held = tokio::time::timeout(std::time::Duration::from_millis(300), &mut run).await;
+        assert!(held.is_err(), "the queue holds while paused");
+        assert!(tool.fetched_urls().is_empty());
+        cancel.resume();
+        let report = run.await.unwrap();
+        assert!(!report.cancelled);
+        assert_eq!(tool.fetched_urls().len(), 1);
     }
 
     #[tokio::test]

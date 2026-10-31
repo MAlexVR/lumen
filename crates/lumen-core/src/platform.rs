@@ -48,9 +48,14 @@ pub enum PlatformError {
     InvalidInput(String),
 }
 
-/// Cooperative cancellation shared between the UI command and the download.
+/// Cooperative cancellation and pause shared between the UI commands and the
+/// download. A paused download finishes the item in flight and then holds at
+/// its next checkpoint until it is resumed or cancelled.
 #[derive(Debug, Clone, Default)]
-pub struct CancelFlag(Arc<AtomicBool>);
+pub struct CancelFlag {
+    cancelled: Arc<AtomicBool>,
+    paused: Arc<AtomicBool>,
+}
 
 impl CancelFlag {
     pub fn new() -> Self {
@@ -58,11 +63,23 @@ impl CancelFlag {
     }
 
     pub fn cancel(&self) {
-        self.0.store(true, Ordering::SeqCst);
+        self.cancelled.store(true, Ordering::SeqCst);
     }
 
     pub fn is_cancelled(&self) -> bool {
-        self.0.load(Ordering::SeqCst)
+        self.cancelled.load(Ordering::SeqCst)
+    }
+
+    pub fn pause(&self) {
+        self.paused.store(true, Ordering::SeqCst);
+    }
+
+    pub fn resume(&self) {
+        self.paused.store(false, Ordering::SeqCst);
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.paused.load(Ordering::SeqCst)
     }
 }
 
@@ -111,6 +128,28 @@ mod tests {
         assert!(!b.is_cancelled());
         a.cancel();
         assert!(b.is_cancelled());
+    }
+
+    #[test]
+    fn pause_is_shared_between_clones_and_independent_of_cancel() {
+        let a = CancelFlag::new();
+        let b = a.clone();
+        assert!(!b.is_paused());
+        a.pause();
+        assert!(b.is_paused());
+        assert!(!b.is_cancelled());
+        b.resume();
+        assert!(!a.is_paused());
+    }
+
+    #[test]
+    fn cancelling_a_paused_flag_keeps_it_cancelled_after_resume() {
+        let flag = CancelFlag::new();
+        flag.pause();
+        flag.cancel();
+        assert!(flag.is_cancelled());
+        flag.resume();
+        assert!(flag.is_cancelled());
     }
 
     #[test]

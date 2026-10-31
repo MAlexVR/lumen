@@ -200,6 +200,10 @@ impl GoldenlifeService {
         self.downloads.cancel(id)
     }
 
+    pub fn set_paused(&self, id: &str, paused: bool) -> bool {
+        self.downloads.set_paused(id, paused)
+    }
+
     pub fn running(&self) -> Vec<RunningDownload> {
         self.downloads.running()
     }

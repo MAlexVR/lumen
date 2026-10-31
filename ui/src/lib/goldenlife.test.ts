@@ -17,7 +17,7 @@ describe("Golden Life preview adapter", () => {
     const library = await api.scanLibrary("/mock-library");
     expect(library.platforms.find((p) => p.id === "goldenlife")?.groups[0].id).toBe("goldenlife/Creator Basics");
     const id = await api.goldenlifeDownloadStart("101");
-    expect(await api.goldenlifeDownloadsRunning()).toEqual([{ id, platform: "goldenlife", group: "101" }]);
+    expect(await api.goldenlifeDownloadsRunning()).toEqual([{ id, platform: "goldenlife", group: "101", paused: false }]);
     expect(await api.goldenlifeDownloadCancel(id)).toBe(true);
     await api.goldenlifeLogout();
     expect(await api.goldenlifeSessionStatus()).toEqual({ loggedIn: false });

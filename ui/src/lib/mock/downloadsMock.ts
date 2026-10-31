@@ -61,7 +61,7 @@ const REPORT_PRESETS: Record<string, Outcome> = { "report-ok": "ok", "report-war
 export function createBus() {
   const progress = new Set<(e: ProgressEvent) => void>();
   const reports = new Set<(e: ReportEvent) => void>();
-  const running = new Map<string, { platform: PlatformId; key: string; name: string; timer?: ReturnType<typeof setInterval> }>();
+  const running = new Map<string, { platform: PlatformId; key: string; name: string; paused?: boolean; timer?: ReturnType<typeof setInterval> }>();
   let counter = 1;
 
   function finish(id: string, outcome: Outcome, done: number, total = LESSONS.length) {
@@ -92,9 +92,10 @@ export function createBus() {
     const outcome = opts.outcome ?? "warn";
     const [m1, m2] = opts.modules ?? ["Hábitos de los que avanzan", "Conoce las herramientas básicas"];
     let step = (opts.startAt ?? 0) * 4;
-    const entry: { platform: PlatformId; key: string; name: string; timer?: ReturnType<typeof setInterval> } = { platform, key, name };
+    const entry: { platform: PlatformId; key: string; name: string; paused?: boolean; timer?: ReturnType<typeof setInterval> } = { platform, key, name };
     running.set(id, entry);
     entry.timer = setInterval(() => {
+      if (entry.paused) return;
       const completed = Math.floor(step / 4);
       const total = opts.total ?? LESSONS.length;
       if (completed >= total) {
@@ -132,7 +133,13 @@ export function createBus() {
     isRunning: (platform: PlatformId, key: string) =>
       [...running.values()].some((r) => r.platform === platform && r.key === key),
     runningOf: (platform: PlatformId): RunningDownload[] =>
-      [...running.entries()].filter(([, r]) => r.platform === platform).map(([id, r]) => ({ id, platform, group: r.key })),
+      [...running.entries()].filter(([, r]) => r.platform === platform).map(([id, r]) => ({ id, platform, group: r.key, paused: r.paused === true })),
+    setPaused(id: string, paused: boolean): boolean {
+      const r = running.get(id);
+      if (!r) return false;
+      r.paused = paused;
+      return true;
+    },
     cancel(id: string, platform: PlatformId): boolean {
       const r = running.get(id);
       if (!r || r.platform !== platform) return false;

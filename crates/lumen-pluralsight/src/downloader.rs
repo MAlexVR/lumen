@@ -143,6 +143,7 @@ impl PluralsightDownloader {
         }
 
         for item in planned {
+            lumen_download::wait_if_paused(cancel).await;
             if cancel.is_cancelled() {
                 report.cancelled = true;
                 report.push(Issue::error(
@@ -1260,6 +1261,25 @@ mod tests {
             .join("download-report.json")
             .is_file());
         assert!(!report.complete);
+    }
+
+    #[tokio::test]
+    async fn a_paused_run_holds_before_the_next_clip_until_resumed() {
+        let temp = tempfile::tempdir().unwrap();
+        let cancel = CancelFlag::new();
+        cancel.pause();
+        let video = Arc::new(FakeVideo::default());
+        let downloader = downloader(api(), video.clone(), quick_retry(1));
+        let (course, options) = (course(), DownloadOptions::default());
+        let run = downloader.download(&course, temp.path(), &options, &NullSink, &cancel);
+        tokio::pin!(run);
+        let held = tokio::time::timeout(std::time::Duration::from_millis(300), &mut run).await;
+        assert!(held.is_err(), "the run holds while paused");
+        assert!(video.jobs.lock().unwrap().is_empty());
+        cancel.resume();
+        let report = run.await.unwrap();
+        assert!(!report.cancelled);
+        assert!(!video.jobs.lock().unwrap().is_empty());
     }
 
     #[tokio::test]

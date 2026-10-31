@@ -168,6 +168,10 @@ impl HotmartService {
         self.downloads.cancel(id)
     }
 
+    pub fn set_paused(&self, id: &str, paused: bool) -> bool {
+        self.downloads.set_paused(id, paused)
+    }
+
     pub fn running(&self) -> Vec<RunningDownload> {
         self.downloads.running()
     }
@@ -515,7 +519,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             serde_json::to_value(f.service.running()).unwrap(),
-            serde_json::json!([{"id": id, "platform": "hotmart", "group": "horizonte"}])
+            serde_json::json!([{"id": id, "platform": "hotmart", "group": "horizonte", "paused": false}])
         );
         let dup = f
             .service

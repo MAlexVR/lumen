@@ -154,6 +154,8 @@ done
 shot plataformas-pluralsight 1280x800 --route "#/downloads/pluralsight"
 shot plataformas-goldenlife 1280x800 --route "#/downloads/goldenlife"
 shot plataformas-harbiz 1280x800 --route "#/downloads/harbiz"
+shot descarga-en-pausa 1280x800 --page "index.html?goldenlife=downloading" --route "#/downloads/goldenlife" \
+  --js 'document.querySelector(".act button").click()' --after 1500
 shot reproductor-cine 1280x800 "${MEDIA[@]}" --route "#/watch/$SKOOL_LESSON" --wait 3500 \
   --js 'window.dispatchEvent(new KeyboardEvent("keydown",{key:"t",bubbles:true}))'
 shot reproductor-recursos 1280x800 "${MEDIA[@]}" --route "#/watch/$RES_LESSON" --wait 3500 --js "${SCROLL}m.scrollTop=560"

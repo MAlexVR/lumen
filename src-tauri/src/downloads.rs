@@ -127,6 +127,8 @@ pub struct RunningDownload {
     pub id: String,
     pub platform: String,
     pub group: String,
+    /// The run holds at its next checkpoint until resumed (or cancelled).
+    pub paused: bool,
 }
 
 /// Payload of the `download://progress` event.
@@ -345,6 +347,18 @@ impl DownloadManager {
         })
     }
 
+    /// Pauses or resumes a running download; false when `id` is not running here.
+    pub fn set_paused(&self, id: &str, paused: bool) -> bool {
+        lock(&self.active).get(id).is_some_and(|a| {
+            if paused {
+                a.cancel.pause();
+            } else {
+                a.cancel.resume();
+            }
+            true
+        })
+    }
+
     pub fn cancel_all(&self) {
         lock(&self.active).values().for_each(|a| a.cancel.cancel());
     }
@@ -357,6 +371,7 @@ impl DownloadManager {
                 id: id.clone(),
                 platform: self.platform.to_string(),
                 group: a.group.clone(),
+                paused: a.cancel.is_paused(),
             })
             .collect();
         out.sort_by(|a, b| a.id.cmp(&b.id));
@@ -367,6 +382,96 @@ impl DownloadManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct HoldUntilCancelled;
+
+    #[async_trait::async_trait]
+    impl lumen_core::CoursePlatform for HoldUntilCancelled {
+        fn id(&self) -> &'static str {
+            "fake"
+        }
+        async fn groups(&self) -> Result<Vec<lumen_core::PlatformGroup>, PlatformError> {
+            Ok(Vec::new())
+        }
+        async fn download_group(
+            &self,
+            group: &str,
+            _: &std::path::Path,
+            _: &DownloadOptions,
+            _: &dyn CourseProgressSink,
+            cancel: &CancelFlag,
+        ) -> Result<DownloadReport, PlatformError> {
+            while !cancel.is_cancelled() {
+                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            }
+            let mut report = DownloadReport::new("fake", group);
+            report.cancelled = true;
+            report.finish();
+            Ok(report)
+        }
+    }
+
+    struct Silent;
+
+    impl DownloadEvents for Silent {
+        fn progress(&self, _: ProgressEvent) {}
+        fn report(&self, _: ReportEvent) {}
+    }
+
+    #[tokio::test]
+    async fn pause_and_resume_show_in_running_and_cancel_still_ends_a_paused_run() {
+        let tmp = tempfile::tempdir().unwrap();
+        let manager = DownloadManager::new("fake");
+        let id = manager
+            .start(
+                "group",
+                Arc::new(HoldUntilCancelled),
+                tmp.path().to_path_buf(),
+                Arc::new(Silent),
+            )
+            .unwrap();
+        assert!(!manager.running()[0].paused);
+        assert!(manager.set_paused(&id, true));
+        assert!(manager.running()[0].paused);
+        assert!(
+            manager
+                .start(
+                    "group",
+                    Arc::new(HoldUntilCancelled),
+                    tmp.path().to_path_buf(),
+                    Arc::new(Silent)
+                )
+                .is_err(),
+            "a paused download still counts as running"
+        );
+        assert!(manager.set_paused(&id, false));
+        assert!(!manager.running()[0].paused);
+        assert!(!manager.set_paused("dl-missing", true));
+
+        assert!(manager.set_paused(&id, true));
+        assert!(manager.cancel(&id));
+        for _ in 0..200 {
+            if manager.running().is_empty() {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        panic!("cancelling a paused download must end it");
+    }
+
+    #[test]
+    fn running_downloads_serialize_the_paused_flag() {
+        let row = RunningDownload {
+            id: "dl-1".into(),
+            platform: "skool".into(),
+            group: "g".into(),
+            paused: true,
+        };
+        assert_eq!(
+            serde_json::to_value(row).unwrap(),
+            serde_json::json!({"id": "dl-1", "platform": "skool", "group": "g", "paused": true})
+        );
+    }
 
     #[test]
     fn a_writable_library_is_created_when_missing() {

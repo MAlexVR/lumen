@@ -83,6 +83,9 @@ export interface Api {
   hotmartCourses(): Promise<CourseInfo[]>;
   hotmartDownloadStart(course: string): Promise<string>;
   hotmartDownloadCancel(id: string): Promise<boolean>;
+  /** Pause and resume work for a download of any platform: ids are unique across them. */
+  downloadPause(id: string): Promise<boolean>;
+  downloadResume(id: string): Promise<boolean>;
   hotmartDownloadsRunning(): Promise<RunningDownload[]>;
   // YouTube: no login; resolve a link, then download it.
   youtubeResolve(url: string): Promise<YoutubePreview>;
@@ -284,6 +287,8 @@ function tauriApi(): Api {
     ...createPluralsightCommands(call),
     ...createGoldenlifeCommands(call),
     ...createHarbizCommands(call),
+    downloadPause: (id) => call("download_pause", { id }),
+    downloadResume: (id) => call("download_resume", { id }),
     updateCheck: () => call("update_check"),
     updateSettings: () => call("update_settings"),
     updateSetIncludePrereleases: (value) => call("update_set_include_prereleases", { value }),

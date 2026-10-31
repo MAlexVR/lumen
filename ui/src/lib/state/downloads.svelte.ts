@@ -28,6 +28,19 @@ export const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 
 class DownloadCenter {
   downloads = $state<DownloadsState>(initialDownloads);
+  #api: Api | null = null;
+
+  /** Download ids are unique across platforms, so pause and resume need no platform. */
+  attach(api: Api): void {
+    this.#api = api;
+  }
+
+  async setPaused(id: string, paused: boolean): Promise<void> {
+    const api = this.#api;
+    if (!api) return;
+    const ok = await (paused ? api.downloadPause(id) : api.downloadResume(id)).catch(() => false);
+    if (ok) this.dispatch({ type: "paused", id, paused });
+  }
 
   dispatch(action: DownloadAction): void {
     this.downloads = reduceDownloads(this.downloads, action);
@@ -43,6 +56,8 @@ export interface DownloadItemSession {
   cancelling: Record<string, boolean>;
   start(key: string): Promise<void>;
   cancel(id: string): Promise<void>;
+  pause(id: string): Promise<void>;
+  resume(id: string): Promise<void>;
   dismiss(id: string): void;
 }
 
@@ -168,6 +183,14 @@ export class PlatformSession<Item> {
     this.cancelling[id] = true;
     const ok = await this.#adapter.cancel(id).catch(() => false);
     if (!ok) this.cancelling[id] = false;
+  }
+
+  pause(id: string): Promise<void> {
+    return center.setPaused(id, true);
+  }
+
+  resume(id: string): Promise<void> {
+    return center.setPaused(id, false);
   }
 
   dismiss(id: string): void {
@@ -324,6 +347,14 @@ class YoutubeStore {
     }
   }
 
+  pause(id: string): Promise<void> {
+    return center.setPaused(id, true);
+  }
+
+  resume(id: string): Promise<void> {
+    return center.setPaused(id, false);
+  }
+
   async cancel(id: string): Promise<void> {
     if (!this.#api) return;
     this.cancelling[id] = true;
@@ -352,6 +383,7 @@ let started = false;
 export async function initDownloads(api: Api): Promise<void> {
   if (started) return;
   started = true;
+  center.attach(api);
   await api.onDownloadProgress((event) => center.dispatch({ type: "progress", event }));
   await api.onDownloadReport((event) => {
     center.dispatch({ type: "report", event });

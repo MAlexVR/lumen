@@ -89,6 +89,10 @@ impl YoutubeService {
         self.downloads.cancel(id)
     }
 
+    pub fn set_paused(&self, id: &str, paused: bool) -> bool {
+        self.downloads.set_paused(id, paused)
+    }
+
     pub fn running(&self) -> Vec<RunningDownload> {
         self.downloads.running()
     }
@@ -303,6 +307,7 @@ mod tests {
                 id: id.clone(),
                 platform: "youtube".into(),
                 group: format!("https://www.youtube.com/watch?v={V}"),
+                paused: false,
             }]
         );
         let again = s

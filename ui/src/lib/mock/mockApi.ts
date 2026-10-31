@@ -173,6 +173,8 @@ export function createMockApi(): Api {
     ...createPluralsightMock(params.get("pluralsight"), bus),
     ...createGoldenlifeMock(params.get("goldenlife"), bus),
     ...createHarbizMock(params.get("harbiz"), bus),
+    downloadPause: async (id) => bus.setPaused(id, true),
+    downloadResume: async (id) => bus.setPaused(id, false),
     onDownloadProgress: bus.onProgress,
     onDownloadReport: bus.onReport,
   };
