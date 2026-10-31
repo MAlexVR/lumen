@@ -3,6 +3,16 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.5.1] - 2026-10-30
+
+### Added
+- The player has a *repeat* button (key `R`) that keeps the current video looping until you move on; the choice is remembered.
+- A lesson with several videos (a Harbiz workout: one per exercise) now steps through them: *Next* and *Previous* (and autoplay) go to the next exercise first and to the next lesson after the last one. The line under the title says which video it is (`Video 2 de 5 · Exercise name`).
+
+### Changed
+- While a video plays, only its own note is shown: for a Harbiz exercise, that exercise's instructions, sets and results (`NN. name.html` next to the video). The class page (`Description.html`) now holds the workout summary and the exercises that have no video, instead of listing every exercise.
+- The "Video adicional" list under the player is gone; extra videos are reached with *Next*/*Previous*. A lesson now marks itself watched when its last video is watched.
+
 ## [0.5.0] - 2026-10-30
 
 ### Added
