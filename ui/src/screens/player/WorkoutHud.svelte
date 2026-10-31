@@ -11,6 +11,8 @@
     session: WorkoutSession;
     plan: ExercisePlan | null;
     progress: SetProgress | null;
+    /** Name of the exercise on screen, shown in the top-left corner. */
+    title: string;
     /** The viewer has not moved for a while: the readout fades back. */
     idle: boolean;
     hasNext: boolean;
@@ -20,7 +22,7 @@
     onundo: () => void;
     onnext: () => void;
   }
-  let { session, plan, progress, idle, hasNext, ontimer, onreset, onset, onundo, onnext }: Props = $props();
+  let { session, plan, progress, title, idle, hasNext, ontimer, onreset, onset, onundo, onnext }: Props = $props();
 
   let now = $state(Date.now());
   const running = $derived(session.runningSince !== null);
@@ -35,6 +37,12 @@
   const elapsed = $derived(formatElapsed(elapsedMs(session, running ? now : (session.runningSince ?? now))));
   const reps = $derived(plan ? targetLabel(plan.target, t("hud_reps")) : "");
 </script>
+
+{#if title}
+  <div class="exercise" class:idle>
+    <span class="chip name" {title}>{title}</span>
+  </div>
+{/if}
 
 <div class="hud" class:idle role="group" aria-label={t("hud_label")}>
   <div class="chip timer">
@@ -91,11 +99,31 @@
     gap: var(--s-2);
     transition: opacity var(--dur-3) var(--ease-out);
   }
-  .hud.idle {
+  .exercise {
+    position: absolute;
+    top: var(--s-4);
+    left: var(--s-4);
+    z-index: 4;
+    max-width: min(55%, 460px);
+    transition: opacity var(--dur-3) var(--ease-out);
+  }
+  .name {
+    display: block;
+    line-height: 32px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-family: var(--font-display);
+    font-weight: var(--fw-display);
+    letter-spacing: var(--tracking-title);
+  }
+  .hud.idle,
+  .exercise.idle {
     opacity: 0.55;
   }
   .hud:hover,
-  .hud:focus-within {
+  .hud:focus-within,
+  .exercise:hover {
     opacity: 1;
   }
   .chip {

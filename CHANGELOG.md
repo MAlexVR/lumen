@@ -3,6 +3,11 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.6.1] - 2026-10-31
+
+### Added
+- The name of the exercise on screen now appears in the top-left corner of the video (Harbiz), in the same quiet style as the workout timer and the set readout. It uses the name the coach gave the exercise, or the title from the video file when there is none, and fades back with the rest of the readout when you stop moving the mouse.
+
 ## [0.6.0] - 2026-10-31
 
 ### Added

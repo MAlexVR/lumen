@@ -18,3 +18,9 @@ export function targetLabel(target: string, repsWord: string): string {
   const text = target.trim();
   return /^[\d-]+$/.test(text) ? `${text} ${repsWord}` : text;
 }
+
+/** The name to show for an exercise: the coach's, or the title taken from the video file. */
+export function exerciseDisplayName(plan: ExercisePlan | null, videoTitle: string): string {
+  const named = plan?.name.replace(/\s{2,}/g, " ").trim();
+  return named || videoTitle.trim();
+}

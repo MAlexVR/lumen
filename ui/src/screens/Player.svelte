@@ -3,7 +3,7 @@
   import { untrack } from "svelte";
   import Icon from "../lib/design/Icon.svelte";
   import { t } from "../lib/i18n/index.svelte";
-  import { planFor } from "../lib/logic/exercisePlan";
+  import { exerciseDisplayName, planFor } from "../lib/logic/exercisePlan";
   import { lessonVideos, stepVideo } from "../lib/logic/lessonVideos";
   import { flattenCourse, positionOf } from "../lib/logic/progress";
   import { wording } from "../lib/logic/videos";
@@ -190,6 +190,7 @@
             {session}
             {plan}
             {progress}
+            title={exerciseDisplayName(plan, current?.title ?? "")}
             {idle}
             hasNext={canNext}
             ontimer={() => sessions.update(lessonKey, (s) => toggleTimer(s, Date.now()))}

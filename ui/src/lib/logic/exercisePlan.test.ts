@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ExercisePlan } from "../types";
-import { exerciseNumber, planFor, targetLabel } from "./exercisePlan";
+import { exerciseDisplayName, exerciseNumber, planFor, targetLabel } from "./exercisePlan";
 
 const plans: ExercisePlan[] = [
   { number: 1, name: "Bodyweight squat", sets: 2, target: "10", rest: 30 },
@@ -42,5 +42,21 @@ describe("targetLabel", () => {
 
   it("is empty when there is no target", () => {
     expect(targetLabel("", "reps")).toBe("");
+  });
+});
+
+describe("exerciseDisplayName", () => {
+  it("prefers the name the coach gave the exercise, with doubled spaces collapsed", () => {
+    const plan: ExercisePlan = { number: 3, name: "Walking  lunge", sets: 2, target: "10", rest: 30 };
+    expect(exerciseDisplayName(plan, "Walking lunge")).toBe("Walking lunge");
+  });
+
+  it("falls back to the title taken from the video file", () => {
+    expect(exerciseDisplayName(null, "Bodyweight squat")).toBe("Bodyweight squat");
+    expect(exerciseDisplayName({ number: 1, name: "  ", sets: null, target: "", rest: null }, "Bodyweight squat")).toBe("Bodyweight squat");
+  });
+
+  it("is empty when there is nothing to show", () => {
+    expect(exerciseDisplayName(null, "")).toBe("");
   });
 });
