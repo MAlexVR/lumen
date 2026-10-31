@@ -281,6 +281,20 @@ async fn lesson_description(
     core.read_description(&path)
 }
 
+/// Sets and repetitions asked for by each exercise of the workout a video
+/// belongs to (empty when the folder holds no Harbiz metadata).
+#[tauri::command]
+async fn lesson_workout_plan(
+    video: String,
+    core: State<'_, Arc<AppCore>>,
+) -> Result<Vec<lumen_harbiz::ExercisePlan>, CommandError> {
+    let path = core.library_path(&video)?;
+    let dir = path.parent().ok_or(CommandError::NotFound)?.to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || lumen_harbiz::exercise_plan(&dir))
+        .await
+        .map_err(|e| CommandError::DataDir(std::io::Error::other(e)))
+}
+
 /// Opens a library file (video or resource) with the system default app.
 #[tauri::command]
 async fn open_library_path(
@@ -1109,6 +1123,7 @@ pub fn run() {
             library_delete_preview,
             library_delete,
             lesson_description,
+            lesson_workout_plan,
             open_library_path,
             open_library_folder,
             progress_group,
