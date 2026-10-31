@@ -30,10 +30,12 @@
     onset?: () => void;
     /** A video of this lesson started or resumed playing. */
     onplaying?: () => void;
+    /** The video paused, ended or went away. */
+    onpaused?: () => void;
     /** Replay at the end instead of moving on, like repeat but decided by the lesson. */
     hold?: boolean;
   }
-  let { src, resumeAt, autoplay, theatre, onsave, onwatched, onended, onerror, onnext, onprev, ontheatre, loop, onloop, overlay, onset, onplaying, hold = false }: Props =
+  let { src, resumeAt, autoplay, theatre, onsave, onwatched, onended, onerror, onnext, onprev, ontheatre, loop, onloop, overlay, onset, onplaying, onpaused, hold = false }: Props =
     $props();
 
   let stage: HTMLElement | undefined = $state();
@@ -221,6 +223,7 @@
   }
 
   onDestroy(() => {
+    onpaused?.();
     save(true);
     clearTimeout(idleTimer);
     clearTimeout(flashTimer);
@@ -255,6 +258,7 @@
     onpause={() => {
       paused = true;
       save(true);
+      onpaused?.();
     }}
     onvolumechange={() => {
       volume = video?.volume ?? 1;

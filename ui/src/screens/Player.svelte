@@ -7,7 +7,7 @@
   import { lessonVideos, stepVideo } from "../lib/logic/lessonVideos";
   import { flattenCourse, positionOf } from "../lib/logic/progress";
   import { wording } from "../lib/logic/videos";
-  import { completeSet, setProgress, shouldHold, startTimer, toggleTimer, undoSet } from "../lib/logic/workoutSession";
+  import { completeSet, pauseTimer, resumeTimer, setProgress, shouldHold, toggleTimer, undoSet } from "../lib/logic/workoutSession";
   import { app } from "../lib/state/app.svelte";
   import { sessions } from "../lib/state/workoutSessions.svelte";
   import { href, navigate } from "../lib/state/router.svelte";
@@ -149,7 +149,16 @@
   const plan = $derived(current ? planFor(plans, current.path) : null);
   const progress = $derived(plan ? setProgress(session, plan.number, plan.sets) : null);
 
-  const startWorkout = () => isWorkout && sessions.update(lessonKey, (s) => startTimer(s, Date.now()));
+  /** The workout whose video last played: where a pause has to stop the clock, even if the lesson changed since. */
+  let playingKey: string | null = null;
+  const startWorkout = () => {
+    if (!isWorkout) return;
+    playingKey = lessonKey;
+    sessions.update(lessonKey, (s) => resumeTimer(s, Date.now()));
+  };
+  const pauseWorkout = () => {
+    if (playingKey) sessions.update(playingKey, (s) => pauseTimer(s, Date.now()));
+  };
   const markSet = () => plan && sessions.update(lessonKey, (s) => completeSet(s, plan.number, plan.sets));
   const files = $derived(item ? item.lesson.resources.filter((r) => r.kind !== "video") : []);
 
@@ -212,6 +221,7 @@
               overlay={isWorkout ? hud : undefined}
               onset={markSet}
               onplaying={startWorkout}
+              onpaused={pauseWorkout}
               hold={shouldHold(progress)}
               onsave={(s) => {
                 if (videoIndex === 0) void app.savePosition(group, lessonKey, s);

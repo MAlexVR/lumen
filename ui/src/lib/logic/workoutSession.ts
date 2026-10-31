@@ -1,4 +1,5 @@
-// A workout in progress: one timer for the whole workout and, per exercise, how
+// A workout in progress: one timer for the whole workout (it counts only while a
+// video plays) and, per exercise, how
 // many sets are done. Pure functions over plain data (timestamps are passed in)
 // so they are easy to test; the player keeps one session per workout.
 
@@ -15,12 +16,17 @@ export interface WorkoutSession {
 
 export const newSession = (): WorkoutSession => ({ accumulated: 0, runningSince: null, started: false, sets: {} });
 
-/** Starts the timer the first time a video of the workout plays; later calls change nothing. */
-export function startTimer(s: WorkoutSession, now: number): WorkoutSession {
-  return s.started ? s : { ...s, started: true, runningSince: now };
+/** A video of the workout plays: the clock starts, or resumes if it was stopped. */
+export function resumeTimer(s: WorkoutSession, now: number): WorkoutSession {
+  return s.runningSince === null ? { ...s, started: true, runningSince: now } : s;
 }
 
-/** Pauses a running timer or resumes a paused one. */
+/** The video paused or the viewer left: the clock stops and keeps what it counted. */
+export function pauseTimer(s: WorkoutSession, now: number): WorkoutSession {
+  return s.runningSince === null ? s : { ...s, accumulated: s.accumulated + (now - s.runningSince), runningSince: null };
+}
+
+/** The click on the timer: pauses a running clock or resumes a stopped one. */
 export function toggleTimer(s: WorkoutSession, now: number): WorkoutSession {
   if (!s.started) return s;
   return s.runningSince === null

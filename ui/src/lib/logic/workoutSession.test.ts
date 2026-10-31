@@ -7,7 +7,8 @@ import {
   resetSession,
   setProgress,
   shouldHold,
-  startTimer,
+  pauseTimer,
+  resumeTimer,
   toggleTimer,
   undoSet,
 } from "./workoutSession";
@@ -16,28 +17,36 @@ describe("timer", () => {
   it("does not run until the first video plays, then counts from that moment", () => {
     const s = newSession();
     expect(elapsedMs(s, 5_000)).toBe(0);
-    const started = startTimer(s, 10_000);
+    const started = resumeTimer(s, 10_000);
     expect(elapsedMs(started, 10_000)).toBe(0);
     expect(elapsedMs(started, 75_000)).toBe(65_000);
   });
 
-  it("starting again while it runs (the next video plays) changes nothing", () => {
-    const s = startTimer(newSession(), 1_000);
-    expect(startTimer(s, 50_000)).toEqual(s);
+  it("a video starting while the timer already runs (the next exercise) changes nothing", () => {
+    const s = resumeTimer(newSession(), 1_000);
+    expect(resumeTimer(s, 50_000)).toEqual(s);
   });
 
-  it("pauses keeping the time so far and resumes without counting the pause", () => {
-    let s = startTimer(newSession(), 0);
+  it("pausing the video stops the clock and playing again resumes it without counting the pause", () => {
+    let s = resumeTimer(newSession(), 0);
+    s = pauseTimer(s, 30_000);
+    expect(elapsedMs(s, 90_000)).toBe(30_000);
+    s = resumeTimer(s, 100_000);
+    expect(elapsedMs(s, 120_000)).toBe(50_000);
+  });
+
+  it("pausing twice, or before anything played, changes nothing", () => {
+    expect(pauseTimer(newSession(), 5_000)).toEqual(newSession());
+    const paused = pauseTimer(resumeTimer(newSession(), 0), 10_000);
+    expect(pauseTimer(paused, 20_000)).toEqual(paused);
+  });
+
+  it("the click on the timer pauses or resumes it by hand", () => {
+    let s = resumeTimer(newSession(), 0);
     s = toggleTimer(s, 30_000);
     expect(elapsedMs(s, 90_000)).toBe(30_000);
     s = toggleTimer(s, 100_000);
     expect(elapsedMs(s, 120_000)).toBe(50_000);
-  });
-
-  it("a paused timer is not restarted by the next video", () => {
-    let s = startTimer(newSession(), 0);
-    s = toggleTimer(s, 10_000);
-    expect(elapsedMs(startTimer(s, 20_000), 40_000)).toBe(10_000);
   });
 
   it("toggling before the workout started does nothing", () => {
@@ -90,7 +99,7 @@ describe("sets", () => {
 
 describe("resetSession", () => {
   it("clears the timer and every set", () => {
-    let s = startTimer(newSession(), 0);
+    let s = resumeTimer(newSession(), 0);
     s = completeSet(s, 1, 2);
     expect(resetSession()).toEqual(newSession());
     expect(elapsedMs(resetSession(), 99_000)).toBe(0);

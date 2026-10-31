@@ -3,6 +3,11 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.6.2] - 2026-10-31
+
+### Changed
+- The workout timer now follows the video: it counts only while a video plays, stops when you pause it (or leave the player) and resumes when you press play, so rests with the video paused are no longer counted. Clicking the timer still pauses or resumes it by hand.
+
 ## [0.6.1] - 2026-10-31
 
 ### Added
