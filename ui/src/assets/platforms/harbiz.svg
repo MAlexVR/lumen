@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Harbiz">
-  <rect width="256" height="256" fill="#0a0a0a"/>
-  <rect x="78" y="70" width="22" height="116" rx="4" fill="#f2ede4"/>
-  <rect x="156" y="70" width="22" height="116" rx="4" fill="#f2ede4"/>
-  <rect x="78" y="117" width="100" height="22" rx="4" fill="#f2ede4"/>
-  <circle cx="189" cy="75" r="9" fill="#d9b66a"/>
-</svg>

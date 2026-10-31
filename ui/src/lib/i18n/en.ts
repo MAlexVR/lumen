@@ -109,7 +109,7 @@ export const en: Record<MessageKey, string> = {
   hm_courses: "Your purchased courses",
   hm_no_courses: "Your account has no courses with a members area.",
   hm_purchased: "Purchased {date}",
-  pf_lede: "Choose where your courses live. Hotmart, Skool, Pluralsight, Golden Life and YouTube already work in Lumen; on Udemy you can check your courses before downloading arrives.",
+  pf_lede: "Choose where your courses live. Hotmart, Skool, Pluralsight, Golden Life, Harbiz and YouTube already work in Lumen; on Udemy you can check your courses before downloading arrives.",
   hm_logout_confirm: "Sign out of Hotmart on this computer? Finished downloads are kept.",
   ps_lede: "Download your Pluralsight courses into the local library to watch them offline.",
   ps_connect_title: "Connect your Pluralsight account",

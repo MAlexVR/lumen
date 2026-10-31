@@ -107,7 +107,7 @@ export const es = {
   hm_courses: "Tus cursos comprados",
   hm_no_courses: "Tu cuenta no tiene cursos con área de miembros.",
   hm_purchased: "Comprado el {date}",
-  pf_lede: "Elige la plataforma de tus cursos. Hotmart, Skool, Pluralsight, Golden Life y YouTube ya funcionan en Lumen; en Udemy puedes comprobar tus cursos antes de que llegue la descarga.",
+  pf_lede: "Elige la plataforma de tus cursos. Hotmart, Skool, Pluralsight, Golden Life, Harbiz y YouTube ya funcionan en Lumen; en Udemy puedes comprobar tus cursos antes de que llegue la descarga.",
   hm_logout_confirm: "¿Cerrar la sesión de Hotmart en este equipo? Las descargas ya hechas se conservan.",
   ps_lede: "Descarga tus cursos de Pluralsight a la biblioteca local para verlos sin conexión.",
   ps_connect_title: "Conecta tu cuenta de Pluralsight",

@@ -3,6 +3,7 @@
   import { t } from "../../lib/i18n/index.svelte";
   import { canSubmitCredentials } from "../../lib/logic/goldenlife";
   import { displayHarbizCourses } from "../../lib/logic/harbiz";
+  import harbizLogo from "../../assets/platforms/harbiz.webp";
   import { app } from "../../lib/state/app.svelte";
   import { harbiz } from "../../lib/state/downloads.svelte";
   import CourseList from "./CourseList.svelte";
@@ -20,7 +21,7 @@
       upToDate: t("hb_up_to_date"),
       range: (first, last) => t("hb_range", { first, last }),
       empty: t("hb_empty"),
-    }),
+    }).map((course) => ({ ...course, coverUrl: harbizLogo })),
   );
   const busy = $derived(harbiz.session === "connecting");
 
