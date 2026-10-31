@@ -3,6 +3,11 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.5.3] - 2026-10-31
+
+### Fixed
+- *Repeat* in the player now lets the video play to its very end before starting over. It used the browser's own loop, which restarted early and showed a clipped video; Lumen now waits for the real end and replays it itself.
+
 ## [0.5.2] - 2026-10-30
 
 ### Added

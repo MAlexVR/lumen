@@ -3,6 +3,7 @@
   import { onDestroy } from "svelte";
   import Icon from "../../lib/design/Icon.svelte";
   import { t } from "../../lib/i18n/index.svelte";
+  import { afterEnd } from "../../lib/logic/loop";
   import { actionForKey, nextSpeed, SPEEDS, type PlayerAction } from "../../lib/logic/keymap";
   import { formatTime, resumeSeek, shouldSavePosition } from "../../lib/logic/time";
   import SeekBar from "./SeekBar.svelte";
@@ -232,7 +233,6 @@
   <video
     bind:this={video}
     {src}
-    {loop}
     preload="metadata"
     playsinline
     onloadedmetadata={onMeta}
@@ -252,6 +252,12 @@
       save(true);
       if (!watchedSent) onwatched();
       watchedSent = true;
+      if (afterEnd(loop) === "replay" && video) {
+        // Plays again only after the real end, so the whole clip is always shown.
+        video.currentTime = 0;
+        void video.play().catch(() => {});
+        return;
+      }
       onended();
     }}
     onerror={() => onerror(video?.error?.code ?? 0)}
