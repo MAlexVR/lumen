@@ -192,6 +192,8 @@ export interface ExercisePlan {
   /** Repetitions (or time) per set, as the coach wrote it. */
   target: string;
   rest: number | null;
+  /** The coach's instructions for the exercise, line breaks kept. */
+  notes: string;
 }
 
 export interface RunningDownload {

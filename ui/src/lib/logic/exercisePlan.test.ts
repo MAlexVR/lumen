@@ -3,8 +3,8 @@ import type { ExercisePlan } from "../types";
 import { exerciseDisplayName, exerciseNumber, planFor, targetLabel } from "./exercisePlan";
 
 const plans: ExercisePlan[] = [
-  { number: 1, name: "Bodyweight squat", sets: 2, target: "10", rest: 30 },
-  { number: 3, name: "Walking lunge", sets: 3, target: "45 s", rest: null },
+  { number: 1, name: "Bodyweight squat", sets: 2, target: "10", rest: 30, notes: "" },
+  { number: 3, name: "Walking lunge", sets: 3, target: "45 s", rest: null, notes: "" },
 ];
 
 describe("exerciseNumber", () => {
@@ -47,13 +47,13 @@ describe("targetLabel", () => {
 
 describe("exerciseDisplayName", () => {
   it("prefers the name the coach gave the exercise, with doubled spaces collapsed", () => {
-    const plan: ExercisePlan = { number: 3, name: "Walking  lunge", sets: 2, target: "10", rest: 30 };
+    const plan: ExercisePlan = { number: 3, name: "Walking  lunge", sets: 2, target: "10", rest: 30, notes: "" };
     expect(exerciseDisplayName(plan, "Walking lunge")).toBe("Walking lunge");
   });
 
   it("falls back to the title taken from the video file", () => {
     expect(exerciseDisplayName(null, "Bodyweight squat")).toBe("Bodyweight squat");
-    expect(exerciseDisplayName({ number: 1, name: "  ", sets: null, target: "", rest: null }, "Bodyweight squat")).toBe("Bodyweight squat");
+    expect(exerciseDisplayName({ number: 1, name: "  ", sets: null, target: "", rest: null, notes: "" }, "Bodyweight squat")).toBe("Bodyweight squat");
   });
 
   it("is empty when there is nothing to show", () => {

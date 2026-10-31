@@ -25,6 +25,26 @@
   let { session, plan, progress, title, idle, hasNext, ontimer, onreset, onset, onundo, onnext }: Props = $props();
 
   let now = $state(Date.now());
+  /** Whether the instructions panel is shown; one choice for every exercise, remembered. */
+  let notesOpen = $state(readNotesOpen());
+  const uid = $props.id();
+
+  function readNotesOpen(): boolean {
+    try {
+      return localStorage.getItem("lumen.hudNotes") !== "0";
+    } catch {
+      return true;
+    }
+  }
+
+  function toggleNotes() {
+    notesOpen = !notesOpen;
+    try {
+      localStorage.setItem("lumen.hudNotes", notesOpen ? "1" : "0");
+    } catch {
+      /* not persisted */
+    }
+  }
   const running = $derived(session.runningSince !== null);
   const paused = $derived(session.started && !running);
   // Only a running timer needs to tick.
@@ -36,11 +56,30 @@
   });
   const elapsed = $derived(formatElapsed(elapsedMs(session, running ? now : (session.runningSince ?? now))));
   const reps = $derived(plan ? targetLabel(plan.target, t("hud_reps")) : "");
+  const notes = $derived(plan?.notes.trim() ?? "");
 </script>
 
 {#if title}
   <div class="exercise" class:idle>
-    <span class="chip name" {title}>{title}</span>
+    <div class="titlerow">
+      <span class="chip name" {title}>{title}</span>
+      {#if notes}
+        <button
+          type="button"
+          class="chip toggle"
+          aria-expanded={notesOpen}
+          aria-controls="notes-{uid}"
+          aria-label={t(notesOpen ? "hud_notes_hide" : "hud_notes_show")}
+          title={t(notesOpen ? "hud_notes_hide" : "hud_notes_show")}
+          onclick={toggleNotes}
+        >
+          <Icon name={notesOpen ? "chevronDown" : "chevronRight"} size={14} />
+        </button>
+      {/if}
+    </div>
+    {#if notes && notesOpen}
+      <p class="notes" id="notes-{uid}">{notes}</p>
+    {/if}
   </div>
 {/if}
 
@@ -106,6 +145,36 @@
     z-index: 4;
     max-width: min(55%, 460px);
     transition: opacity var(--dur-3) var(--ease-out);
+  }
+  .titlerow {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .toggle {
+    justify-content: center;
+    width: 32px;
+    padding: 0;
+    color: var(--text-muted);
+  }
+  .toggle:hover,
+  .toggle:focus-visible {
+    color: var(--text);
+  }
+  .notes {
+    margin-top: var(--s-2);
+    max-width: 420px;
+    max-height: 38vh;
+    overflow-y: auto;
+    padding: var(--s-3) var(--s-4);
+    border: 1px solid var(--line);
+    border-radius: var(--r-3);
+    background: color-mix(in srgb, var(--scrim) 85%, transparent);
+    backdrop-filter: blur(8px);
+    color: var(--text);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+    white-space: pre-line;
   }
   .name {
     display: block;

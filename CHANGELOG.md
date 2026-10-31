@@ -3,6 +3,11 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.6.4] - 2026-10-31
+
+### Added
+- The instructions of the exercise on screen now appear under its name, in the top-left corner of the video, in the same quiet translucent style (Harbiz). A small button next to the name hides or shows them, and the choice is remembered. They come from the coach's notes already saved with each class, so nothing needs to be downloaded again.
+
 ## [0.6.3] - 2026-10-31
 
 ### Fixed

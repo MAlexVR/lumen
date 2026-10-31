@@ -76,6 +76,8 @@ export const es = {
   hud_timer_pause: "Pausar el cronómetro del entrenamiento",
   hud_timer_resume: "Reanudar el cronómetro del entrenamiento",
   hud_reset: "Reiniciar el entrenamiento",
+  hud_notes_hide: "Ocultar las indicaciones del ejercicio",
+  hud_notes_show: "Mostrar las indicaciones del ejercicio",
   restart: "Reproducir desde el inicio",
   playback: "Reproducción",
   mute: "Silenciar",

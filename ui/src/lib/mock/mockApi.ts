@@ -179,9 +179,9 @@ export function createMockApi(): Api {
     workoutPlan: async (video) =>
       video.includes("Hip mobility")
         ? [
-            { number: 1, name: "Bodyweight squat", sets: 2, target: "10", rest: 30 },
-            { number: 3, name: "Walking lunge", sets: 3, target: "12", rest: 30 },
-            { number: 4, name: "Plank hold", sets: 2, target: "45 s", rest: 60 },
+            { number: 1, name: "Bodyweight squat", sets: 2, target: "10", rest: 30, notes: "Feet shoulder-width apart and chest up; lower until your thighs are parallel to the floor, then stand tall." },
+            { number: 3, name: "Walking lunge", sets: 3, target: "12", rest: 30, notes: "Step forward and lower the back knee towards the floor.\nPush through the front heel to return to the start." },
+            { number: 4, name: "Plank hold", sets: 2, target: "45 s", rest: 60, notes: "" },
           ]
         : [],
     downloadPause: async (id) => bus.setPaused(id, true),
