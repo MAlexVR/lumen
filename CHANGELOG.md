@@ -3,6 +3,18 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.5.2] - 2026-10-30
+
+### Added
+- In the player, the lesson being played now lists its videos (the exercises of a Harbiz workout) under its name in the lessons panel; click one to play it.
+- When Lumen starts, the notes of Harbiz workouts already on disk are rewritten from their saved metadata (no network, no update needed): each exercise video gets its own note and the class page no longer lists every exercise.
+
+### Changed
+- Each Harbiz video is tied to its exercise by the full name, not just by the number. If the coach renames or reorders an exercise, or gives it another video, the old file is moved to a hidden `.replaced/` folder inside the class (nothing is deleted) and the right video is fetched. A name cut short because the library lives on a deeper path still matches its exercise. Exercises that share a video download it once and each keeps its own file and note.
+
+### Fixed
+- The context menu of a lesson in the player's list no longer shows underneath the rows that follow it.
+
 ## [0.5.1] - 2026-10-30
 
 ### Added
