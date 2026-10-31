@@ -108,11 +108,11 @@ export function createMockApi(): Api {
         title: "Harbiz Training",
         index: 1,
         sections: [{
-          title: "2026-06-02 - Hip mobility",
+          title: "2026-06",
           index: 0,
           lessons: [
-            { key: "harbiz:1-Harbiz Training/0-2026-06-02 - Hip mobility/1-Bodyweight squat", title: "Bodyweight squat", index: 1, video: "Harbiz/Harbiz Training/2026-06-02 - Hip mobility/01. Bodyweight squat.mp4", description: "Harbiz/Harbiz Training/2026-06-02 - Hip mobility/01. Bodyweight squat.html", hasVideo: true, resources: [] },
-            { key: "harbiz:1-Harbiz Training/0-2026-06-02 - Hip mobility/2-Leg swings", title: "Leg swings", index: 2, video: "Harbiz/Harbiz Training/2026-06-02 - Hip mobility/02. Leg swings.mp4", description: null, hasVideo: true, resources: [] },
+            { key: "harbiz:1-Harbiz Training/0-2026-06/0-2026-06-02 - Hip mobility", title: "2026-06-02 - Hip mobility", index: 0, video: "Harbiz/Harbiz Training/2026-06/2026-06-02 - Hip mobility/01. Bodyweight squat.mp4", description: "Harbiz/Harbiz Training/2026-06/2026-06-02 - Hip mobility/Description.html", hasVideo: true, resources: [] },
+            { key: "harbiz:1-Harbiz Training/0-2026-06/0-2026-06-05 - Leg swings", title: "2026-06-05 - Leg swings", index: 0, video: "Harbiz/Harbiz Training/2026-06/2026-06-05 - Leg swings/01. Leg swings.mp4", description: null, hasVideo: true, resources: [] },
           ],
         }],
       }],

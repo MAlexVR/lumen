@@ -17,10 +17,10 @@ use lumen_download::{VideoError, VideoJob, VideoRunner};
 use serde_json::Value;
 
 use crate::error::HarbizError;
-use crate::parse::Parsed;
+use crate::parse::{Parsed, Workout};
 use crate::planner::{
     course_dir, plan_workouts, video_exists, PlannedExercise, PlannedWorkout, COURSE_TITLE,
-    WORKOUT_FILE,
+    DESCRIPTION_FILE, LEGACY_WORKOUT_FILE, WORKOUT_FILE,
 };
 
 /// Platform id used in reports and by the app shell.
@@ -85,41 +85,88 @@ fn logged_sets(result: &Value) -> Vec<String> {
         .collect()
 }
 
-/// The note shown next to an exercise video in the library.
-fn exercise_note(planned: &PlannedExercise) -> String {
-    let e = &planned.exercise;
-    let name = if e.name.trim().is_empty() {
-        "Exercise"
+/// The description the library shows for a class: the workout, how it went and
+/// every exercise with its prescription, coach notes and logged sets.
+fn workout_description(workout: &Workout, exercises: &[PlannedExercise]) -> String {
+    let title = if workout.title.trim().is_empty() {
+        "Workout"
     } else {
-        e.name.trim()
+        workout.title.trim()
     };
     let mut html = format!(
-        "<!doctype html>\n<meta charset=\"utf-8\">\n<title>{0}</title>\n<h1>{0}</h1>\n",
-        escape_html(name)
+        "<!doctype html>\n<meta charset=\"utf-8\">\n<title>{0}</title>\n<h1>{0}</h1>\n<p>{1}</p>\n",
+        escape_html(title),
+        escape_html(&workout.date)
     );
-    if let Some(section) = e.section.as_deref() {
-        html += &format!("<p>{}</p>\n", escape_html(section));
+    if !workout.description.is_empty() {
+        html += &format!(
+            "<p>{}</p>\n",
+            escape_html(&workout.description).replace('\n', "<br>")
+        );
     }
-    let facts: Vec<String> = [("Sets", &e.sets), ("Target", &e.target), ("Rest", &e.rest)]
-        .into_iter()
-        .filter(|(_, value)| !value.is_empty())
-        .map(|(label, value)| format!("<li>{label}: {}</li>", escape_html(value)))
-        .collect();
-    if !facts.is_empty() {
-        html += &format!("<ul>{}</ul>\n", facts.join(""));
+    let how_it_went = overall_facts(&workout.result_general);
+    if !how_it_went.is_empty() {
+        html += &format!("<p>{}</p>\n", escape_html(&how_it_went.join(" · ")));
     }
-    if !e.notes.is_empty() {
-        html += &format!("<p>{}</p>\n", escape_html(&e.notes).replace('\n', "<br>"));
-    }
-    let sets = logged_sets(&e.result);
-    if !sets.is_empty() {
-        let items: String = sets
-            .iter()
-            .map(|set| format!("<li>{}</li>", escape_html(set)))
+    html += "<ol>\n";
+    for planned in exercises {
+        let e = &planned.exercise;
+        let name = if e.name.trim().is_empty() {
+            "Exercise"
+        } else {
+            e.name.trim()
+        };
+        html += &format!("<li><strong>{}</strong>", escape_html(name));
+        if let Some(section) = e.section.as_deref() {
+            html += &format!(" ({})", escape_html(section));
+        }
+        let facts: Vec<String> = [("Sets", &e.sets), ("Target", &e.target), ("Rest", &e.rest)]
+            .into_iter()
+            .filter(|(_, value)| !value.is_empty())
+            .map(|(label, value)| format!("{label}: {value}"))
             .collect();
-        html += &format!("<h2>Result</h2>\n<ol>{items}</ol>\n");
+        if !facts.is_empty() {
+            html += &format!("<br>{}", escape_html(&facts.join(" · ")));
+        }
+        if !e.notes.is_empty() {
+            html += &format!("<br>{}", escape_html(&e.notes).replace('\n', "<br>"));
+        }
+        for (i, set) in logged_sets(&e.result).iter().enumerate() {
+            html += &format!("<br>Set {}: {}", i + 1, escape_html(set));
+        }
+        html += "</li>\n";
     }
+    html += "</ol>\n";
     html
+}
+
+/// `rpe`, `compliance`, ... from the overall result of the workout.
+fn overall_facts(result: &Value) -> Vec<String> {
+    let Some(object) = result.as_object() else {
+        return Vec::new();
+    };
+    ["rpe", "compliance", "rate", "comments"]
+        .into_iter()
+        .filter_map(|key| match object.get(key)? {
+            Value::String(text) if !text.is_empty() => Some(format!("{key}: {text}")),
+            Value::Number(number) => Some(format!("{key}: {number}")),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Moves a workout folder written by an earlier version (straight under the
+/// course) into its month and removes the files that version generated.
+fn migrate_legacy(workout: &PlannedWorkout) -> Result<(), String> {
+    if workout.legacy_dir.is_dir() && !workout.dir.exists() {
+        std::fs::create_dir_all(&workout.month_dir).map_err(|e| e.to_string())?;
+        std::fs::rename(&workout.legacy_dir, &workout.dir).map_err(|e| e.to_string())?;
+    }
+    let _ = std::fs::remove_file(workout.dir.join(LEGACY_WORKOUT_FILE));
+    for planned in &workout.exercises {
+        let _ = std::fs::remove_file(workout.dir.join(format!("{}.html", planned.stem)));
+    }
+    Ok(())
 }
 
 impl WorkoutDownloader<'_> {
@@ -229,6 +276,15 @@ impl WorkoutDownloader<'_> {
     async fn workout_issues(&self, ctx: &RunContext, workout: &PlannedWorkout) -> Vec<Issue> {
         let label = workout.label.as_str();
         let mut issues = Vec::new();
+        if let Err(e) = migrate_legacy(workout) {
+            issues.push(Issue::error(
+                IssueKind::Course,
+                Some(label),
+                None,
+                format!("cannot move the workout into its month folder: {e}"),
+            ));
+            return issues;
+        }
         if let Err(e) = std::fs::create_dir_all(&workout.dir) {
             issues.push(Issue::error(
                 IssueKind::Course,
@@ -252,6 +308,15 @@ impl WorkoutDownloader<'_> {
                 format!("cannot write {WORKOUT_FILE}: {e}"),
             ));
         }
+        let page = workout_description(&workout.workout, &workout.exercises);
+        if let Err(e) = std::fs::write(workout.dir.join(DESCRIPTION_FILE), page) {
+            issues.push(Issue::error(
+                IssueKind::Course,
+                Some(label),
+                None,
+                format!("cannot write {DESCRIPTION_FILE}: {e}"),
+            ));
+        }
         if workout.exercises.is_empty() {
             issues.push(Issue::warning(
                 IssueKind::EmptyLesson,
@@ -261,15 +326,6 @@ impl WorkoutDownloader<'_> {
             ));
         }
         for planned in &workout.exercises {
-            let note = workout.dir.join(format!("{}.html", planned.stem));
-            if let Err(e) = std::fs::write(&note, exercise_note(planned)) {
-                issues.push(Issue::error(
-                    IssueKind::Course,
-                    Some(label),
-                    None,
-                    format!("cannot write the note of {}: {e}", planned.stem),
-                ));
-            }
             let Some(url) = planned.exercise.url.as_deref() else {
                 issues.push(Issue::warning(
                     IssueKind::VideoNotResolved,
@@ -481,10 +537,12 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let out = run(&two_workouts(), tmp.path()).await;
         let course = course_dir(tmp.path());
-        let legs = course.join("2026-06-02 - Legs");
+        let legs = course.join("2026-06/2026-06-02 - Legs");
         assert!(legs.join("01. Squat.mp4").is_file());
         assert!(legs.join("02. Lunge.mp4").is_file());
-        assert!(course.join("2026-06-04 - Core/01. Plank.mp4").is_file());
+        assert!(course
+            .join("2026-06/2026-06-04 - Core/01. Plank.mp4")
+            .is_file());
         let meta: Value =
             serde_json::from_str(&std::fs::read_to_string(legs.join(WORKOUT_FILE)).unwrap())
                 .unwrap();
@@ -500,18 +558,53 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn the_exercise_note_is_escaped_html_with_sets_and_results() {
+    async fn the_class_description_is_escaped_html_with_exercises_sets_and_results() {
         let tmp = tempfile::tempdir().unwrap();
         run(&two_workouts(), tmp.path()).await;
-        let note = std::fs::read_to_string(
-            course_dir(tmp.path()).join("2026-06-02 - Legs/01. Squat.html"),
-        )
-        .unwrap();
-        assert!(note.contains("Squat"));
-        assert!(note.contains("Keep &lt;it&gt; slow &amp; steady"));
-        assert!(!note.contains("<it>"));
-        assert!(note.contains("reps: 10"));
-        assert!(note.contains("weight: 2.5"));
+        let legs = course_dir(tmp.path()).join("2026-06/2026-06-02 - Legs");
+        let page = std::fs::read_to_string(legs.join("Description.html")).unwrap();
+        assert!(page.contains("Legs") && page.contains("2026-06-02"));
+        assert!(page.contains("Warm up first"));
+        assert!(page.contains("Squat") && page.contains("Lunge"));
+        assert!(page.contains("Keep &lt;it&gt; slow &amp; steady"));
+        assert!(!page.contains("<it>"));
+        assert!(page.contains("reps: 10"));
+        assert!(page.contains("weight: 2.5"));
+        assert!(
+            !legs.join("01. Squat.html").exists(),
+            "exercises have no page of their own"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_metadata_file_is_hidden_from_the_library() {
+        assert!(WORKOUT_FILE.starts_with('.'));
+    }
+
+    #[tokio::test]
+    async fn the_old_flat_folders_are_moved_into_their_month_and_cleaned() {
+        let tmp = tempfile::tempdir().unwrap();
+        let course = course_dir(tmp.path());
+        let old = course.join("2026-06-02 - Legs");
+        std::fs::create_dir_all(&old).unwrap();
+        std::fs::write(old.join("01. Squat.mp4"), "old video").unwrap();
+        std::fs::write(old.join("01. Squat.html"), "old note").unwrap();
+        std::fs::write(old.join("workout.json"), "{}").unwrap();
+        let out = run(&two_workouts(), tmp.path()).await;
+        let moved = course.join("2026-06/2026-06-02 - Legs");
+        assert!(!old.exists());
+        assert_eq!(
+            std::fs::read_to_string(moved.join("01. Squat.mp4")).unwrap(),
+            "old video"
+        );
+        assert!(!out
+            .videos
+            .urls()
+            .contains(&"https://youtu.be/sq?si=token".to_string()));
+        assert!(!moved.join("01. Squat.html").exists());
+        assert!(!moved.join("workout.json").exists());
+        assert!(moved.join(WORKOUT_FILE).is_file());
+        assert!(out.report.complete);
     }
 
     #[tokio::test]
@@ -526,7 +619,7 @@ mod tests {
         assert!(out.report.complete);
         let meta = std::fs::read_to_string(
             course_dir(tmp.path())
-                .join("2026-06-02 - Legs")
+                .join("2026-06/2026-06-02 - Legs")
                 .join(WORKOUT_FILE),
         )
         .unwrap();
@@ -548,7 +641,7 @@ mod tests {
         assert_eq!(out.videos.urls(), ["https://youtu.be/ki"]);
         assert_eq!(out.report.total_lessons, 3);
         assert!(course_dir(tmp.path())
-            .join("2026-10-31 - Kicks/01. Kick.mp4")
+            .join("2026-10/2026-10-31 - Kicks/01. Kick.mp4")
             .is_file());
     }
 
@@ -578,7 +671,9 @@ mod tests {
         assert!(!out.report.complete);
         assert_eq!(out.report.completed_lessons, 1);
         let course = course_dir(tmp.path());
-        assert!(course.join("2026-06-04 - Core/01. Plank.mp4").is_file());
+        assert!(course
+            .join("2026-06/2026-06-04 - Core/01. Plank.mp4")
+            .is_file());
         assert!(!course.join(".complete").exists());
     }
 
@@ -681,7 +776,7 @@ mod tests {
         let held = tokio::time::timeout(std::time::Duration::from_millis(300), &mut run).await;
         assert!(held.is_err(), "the run holds while paused");
         assert!(!course_dir(tmp.path())
-            .join("2026-06-02 - Legs/01. Squat.mp4")
+            .join("2026-06/2026-06-02 - Legs/01. Squat.mp4")
             .exists());
         cancel.resume();
         let out = run.await;
@@ -703,7 +798,7 @@ mod tests {
     #[tokio::test]
     async fn leftover_part_files_are_removed_and_progress_names_the_course() {
         let tmp = tempfile::tempdir().unwrap();
-        let legs = course_dir(tmp.path()).join("2026-06-02 - Legs");
+        let legs = course_dir(tmp.path()).join("2026-06/2026-06-02 - Legs");
         std::fs::create_dir_all(&legs).unwrap();
         std::fs::write(legs.join("01. Squat.mp4.part"), "x").unwrap();
         let out = run(&two_workouts(), tmp.path()).await;

@@ -1,7 +1,7 @@
-//! On-disk layout: `<library>/Harbiz/Harbiz Training/<date - workout>/` holds
-//! `workout.json` and one `NN. <exercise>.<ext>` video per exercise (plus an
-//! `NN. <exercise>.html` note). The library scanner reads a workout folder as a
-//! module and its loose videos as lessons.
+//! On-disk layout: `<library>/Harbiz/Harbiz Training/<YYYY-MM>/<date - workout>/`
+//! holds one `NN. <exercise>.<ext>` video per exercise, a `Description.html`
+//! and the hidden `.workout.json`. The library scanner reads a month as a
+//! module and a workout folder as one class, so classes count workouts.
 
 use std::path::{Path, PathBuf};
 
@@ -15,7 +15,12 @@ use crate::parse::{Exercise, Workout};
 pub const PLATFORM_DIR: &str = "Harbiz";
 /// The single course every workout lives in.
 pub const COURSE_TITLE: &str = "Harbiz Training";
-pub const WORKOUT_FILE: &str = "workout.json";
+/// Hidden so the library does not list it as a resource of the class.
+pub const WORKOUT_FILE: &str = ".workout.json";
+/// Shown by the library as the description of the class.
+pub const DESCRIPTION_FILE: &str = "Description.html";
+/// Name of the metadata file before it was hidden.
+pub const LEGACY_WORKOUT_FILE: &str = "workout.json";
 
 const VIDEO_EXTS: [&str; 3] = ["mp4", "mkv", "webm"];
 
@@ -36,7 +41,11 @@ pub struct PlannedExercise {
 pub struct PlannedWorkout {
     /// Position in the whole plan (0-based).
     pub order: usize,
+    /// `<course>/<YYYY-MM>`.
+    pub month_dir: PathBuf,
     pub dir: PathBuf,
+    /// Where earlier versions put the workout, straight under the course.
+    pub legacy_dir: PathBuf,
     /// Folder name, used as the report label.
     pub label: String,
     pub workout: Workout,
@@ -47,12 +56,13 @@ pub struct PlannedWorkout {
 /// date and title (plus a counter for exact repeats), never on what else is on
 /// the agenda, so a new workout cannot rename the folders already downloaded.
 pub fn plan_workouts(course_dir: &Path, workouts: &[Workout]) -> Vec<PlannedWorkout> {
-    let folder_budget = name_budget(path_units(course_dir), 60).min(100);
     let mut folders = UniqueNames::default();
     workouts
         .iter()
         .enumerate()
         .map(|(order, workout)| {
+            let month_dir = course_dir.join(workout.date.get(..7).unwrap_or("0000-00"));
+            let folder_budget = name_budget(path_units(&month_dir), 60).min(100);
             let title = Some(workout.title.trim())
                 .filter(|t| !t.is_empty())
                 .unwrap_or("Workout");
@@ -60,10 +70,12 @@ pub fn plan_workouts(course_dir: &Path, workouts: &[Workout]) -> Vec<PlannedWork
                 &format!("{} - {title}", workout.date),
                 folder_budget,
             ));
-            let dir = course_dir.join(&label);
+            let dir = month_dir.join(&label);
             let exercises = plan_exercises(&dir, &workout.exercises);
             PlannedWorkout {
                 order,
+                legacy_dir: course_dir.join(&label),
+                month_dir,
                 dir,
                 label,
                 workout: workout.clone(),
@@ -173,8 +185,23 @@ mod tests {
         let dir = Path::new("/lib/Harbiz/Harbiz Training");
         let plan = plan_workouts(dir, &[workout("a", "2026-06-02", "Hip: mobility?", vec![])]);
         assert_eq!(names(&plan), ["2026-06-02 - Hip_ mobility_"]);
-        assert_eq!(plan[0].dir, dir.join("2026-06-02 - Hip_ mobility_"));
+        assert_eq!(plan[0].month_dir, dir.join("2026-06"));
+        assert_eq!(plan[0].dir, dir.join("2026-06/2026-06-02 - Hip_ mobility_"));
+        assert_eq!(plan[0].legacy_dir, dir.join("2026-06-02 - Hip_ mobility_"));
         assert_eq!(plan[0].order, 0);
+    }
+
+    #[test]
+    fn workouts_are_grouped_by_the_month_of_their_date() {
+        let plan = plan_workouts(
+            Path::new("/lib"),
+            &[
+                workout("a", "2026-06-30", "A", vec![]),
+                workout("b", "2026-07-02", "B", vec![]),
+            ],
+        );
+        assert_eq!(plan[0].month_dir, Path::new("/lib/2026-06"));
+        assert_eq!(plan[1].month_dir, Path::new("/lib/2026-07"));
     }
 
     #[test]

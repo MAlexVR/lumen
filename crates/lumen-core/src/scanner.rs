@@ -694,16 +694,22 @@ mod tests {
     }
 
     #[test]
-    fn harbiz_workouts_are_modules_and_their_exercise_videos_are_lessons() {
+    fn harbiz_counts_workouts_as_classes_and_keeps_exercise_videos_inside_them() {
         let tmp = TempDir::new().unwrap();
-        let workout = "Harbiz/Harbiz Training/2026-06-02 - Legs";
-        put(tmp.path(), &format!("{workout}/workout.json"), "{}");
-        put(tmp.path(), &format!("{workout}/01. Squat.mp4"), "video");
-        put(tmp.path(), &format!("{workout}/01. Squat.html"), "note");
-        put(tmp.path(), &format!("{workout}/02. Lunge.mp4"), "video");
+        let legs = "Harbiz/Harbiz Training/2026-06/2026-06-02 - Legs";
+        put(tmp.path(), &format!("{legs}/.workout.json"), "{}");
+        put(tmp.path(), &format!("{legs}/Description.html"), "page");
+        put(tmp.path(), &format!("{legs}/01. Squat.mp4"), "video");
+        put(tmp.path(), &format!("{legs}/02. Lunge.mp4"), "video");
+        put(tmp.path(), &format!("{legs}/03. Step.mp4"), "video");
         put(
             tmp.path(),
-            "Harbiz/Harbiz Training/2026-06-04 - Core/01. Plank.mp4",
+            "Harbiz/Harbiz Training/2026-06/2026-06-04 - Core/01. Plank.mp4",
+            "video",
+        );
+        put(
+            tmp.path(),
+            "Harbiz/Harbiz Training/2026-07/2026-07-01 - Arms/01. Curl.mp4",
             "video",
         );
 
@@ -716,31 +722,35 @@ mod tests {
         assert_eq!(group.id, "harbiz/Harbiz Training");
         assert_eq!(group.platform, LibraryPlatform::Harbiz);
         assert_eq!(group.title, "Harbiz Training");
-        assert_eq!(group.lesson_count, 3);
+        assert_eq!(
+            group.lesson_count, 3,
+            "three workouts, however many exercise videos they hold"
+        );
         let sections = &group.courses[0].sections;
         assert_eq!(
             sections
                 .iter()
                 .map(|s| s.title.as_str())
                 .collect::<Vec<_>>(),
-            ["2026-06-02 - Legs", "2026-06-04 - Core"]
+            ["2026-06", "2026-07"]
         );
-        let squat = &sections[0].lessons[0];
-        assert_eq!(squat.title, "Squat");
-        assert_eq!(squat.index, 1);
+        assert_eq!(sections[0].lessons.len(), 2);
+        let class = &sections[0].lessons[0];
+        assert_eq!(class.title, "2026-06-02 - Legs");
         assert_eq!(
-            squat.key,
-            "harbiz:1-Harbiz Training/0-2026-06-02 - Legs/1-Squat"
-        );
-        assert_eq!(
-            squat.video.as_deref(),
-            Some(format!("{workout}/01. Squat.mp4").as_str())
+            class.key,
+            "harbiz:1-Harbiz Training/0-2026-06/0-2026-06-02 - Legs"
         );
         assert_eq!(
-            squat.description.as_deref(),
-            Some(format!("{workout}/01. Squat.html").as_str())
+            class.video.as_deref(),
+            Some(format!("{legs}/01. Squat.mp4").as_str())
         );
-        assert!(sections[0].lessons[1].description.is_none());
+        assert_eq!(
+            class.description.as_deref(),
+            Some(format!("{legs}/Description.html").as_str())
+        );
+        let extra: Vec<_> = class.resources.iter().map(|r| r.name.as_str()).collect();
+        assert_eq!(extra, ["02. Lunge.mp4", "03. Step.mp4"]);
         assert_eq!(
             scanner
                 .scan_platform_group(LibraryPlatform::Harbiz, "Harbiz Training")
