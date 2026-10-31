@@ -3,8 +3,14 @@
 //! events; workouts carry exercises whose demo videos are YouTube links,
 //! downloaded through the shared yt-dlp runner.
 
+pub mod client;
+pub mod credentials;
+pub mod ddp;
 pub mod error;
 pub mod parse;
 
+pub use client::{login, Connector, DdpConnection, DdpError, HarbizApi, HarbizClient};
+pub use credentials::{Login, Session};
+pub use ddp::WsConnector;
 pub use error::HarbizError;
 pub use parse::{Exercise, Parsed, Workout};

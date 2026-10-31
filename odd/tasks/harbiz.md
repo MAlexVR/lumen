@@ -12,8 +12,8 @@ Branch: `local/harbiz` (never pushed, never merged to main). Delivery: single lo
 - S7 (assumption): body photos are out of scope for the first cut.
 
 ## Tasks
-- T1 (S5,S6) parsers: inline, done (RED 8 failed/1 passed -> GREEN 10 passed), commit 667239a
-- T2 (S3,S5) DDP client (login, resume, paged past/next listing): inline, pending
+- T1 (S5,S6) parsers: inline, done (RED 8 failed/1 passed -> GREEN 10 passed), commit 8e2c00a
+- T2 (S3,S5) DDP client (login, resume, paged past + single upcoming call): inline, done (RED 8+1+3 failed -> GREEN 29 passed; live: login ok, 66 workouts, 5 photo check-ins, 2026-06-01..2026-10-31), commit TBD
 - T3 (S3,S6) planner + downloader with per-file skip: inline, pending
 - T4 (S1) CoursePlatform impl: inline, pending
 - T5 (S6) lumen-core LibraryPlatform::Harbiz + scanner: inline, pending
@@ -25,3 +25,4 @@ Branch: `local/harbiz` (never pushed, never merged to main). Delivery: single lo
 - L1 (2026-10-30): "quiero que le agregues la funcionalidad a lumen para harbiz con ODD esta funcionalidad no la quiero en el repo solo en local, tambien quiero tener la opción de descargar los entrenamientos de fechas actualizadas que hayan sido programadas y que no tenga de forma local"
 - L2: API map (read-only probe): `getAllCalEventsClient(dir,{$date})` max 50 per call, dir -1 past / 1 next, page back with the oldest date; event = {_id,type:workout|bodyPhoto,title,date,completed,workout{exercises[{name_provisional,url_provisional,sets,target,rest,notes,result}],resultGeneral}}.
 - L3: route: all tasks inline (no Writer trigger: units are sequential and depend on each other).
+- L4: live findings: the server ignores the cursor going forward (dir=1 always answers with what is next), so only the past is paged and a full upcoming page is an error; rustls needs an explicit aws-lc-rs provider because the crate alone links none (found only by the live run).
