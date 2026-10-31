@@ -281,12 +281,18 @@ impl CourseDownloader<'_> {
         });
     }
 
+    /// Holds while the download is paused, then reports whether it should stop.
+    async fn checkpoint(&self, ctx: &RunContext) -> bool {
+        lumen_download::wait_if_paused(self.cancel).await;
+        self.stopped(ctx)
+    }
+
     fn stopped(&self, ctx: &RunContext) -> bool {
         self.cancel.is_cancelled() || ctx.expired.load(Ordering::SeqCst)
     }
 
     async fn process_lesson(&self, ctx: &RunContext, lesson: &PlannedLesson) -> LessonOutcome {
-        if self.stopped(ctx) {
+        if self.checkpoint(ctx).await {
             return LessonOutcome {
                 order: lesson.order,
                 skipped: true,
@@ -381,7 +387,7 @@ impl CourseDownloader<'_> {
         }
 
         for att in &data.attachments {
-            if self.stopped(ctx) {
+            if self.checkpoint(ctx).await {
                 return issues;
             }
             self.download_attachment(ctx, lesson, att, &mut issues)
@@ -390,7 +396,7 @@ impl CourseDownloader<'_> {
 
         if data.has_player_media {
             for (i, media) in data.medias.iter().enumerate() {
-                if self.stopped(ctx) {
+                if self.checkpoint(ctx).await {
                     return issues;
                 }
                 let n = i + 1;
@@ -418,7 +424,7 @@ impl CourseDownloader<'_> {
             0
         };
         for (i, iframe) in iframes.iter().enumerate() {
-            if self.stopped(ctx) {
+            if self.checkpoint(ctx).await {
                 return issues;
             }
             let n = offset + i + 1;
@@ -1269,6 +1275,28 @@ mod tests {
             jobs[1].referer.as_deref(),
             Some("https://horizonte-club.club.hotmart.com/")
         );
+    }
+
+    #[tokio::test]
+    async fn a_paused_run_holds_before_the_next_lesson_until_resumed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let cancel = CancelFlag::new();
+        cancel.pause();
+        let source = FakeSource {
+            nav: Some(Ok(nav(&[("h1", "A")]))),
+            ..FakeSource::default()
+        };
+        source.lesson_data("h1", vec![Ok(simple_lesson("<p>a</p>"))]);
+        let videos = FakeVideo::default();
+        let run = run_with(&source, &videos, tmp.path(), 1, &cancel);
+        tokio::pin!(run);
+        let held = tokio::time::timeout(std::time::Duration::from_millis(300), &mut run).await;
+        assert!(held.is_err(), "the run holds while paused");
+        assert_eq!(source.count("lesson:h1"), 0);
+        cancel.resume();
+        let (report, _) = run.await;
+        assert_eq!(report.unwrap().completed_lessons, 1);
+        assert_eq!(source.count("lesson:h1"), 1);
     }
 
     #[tokio::test]

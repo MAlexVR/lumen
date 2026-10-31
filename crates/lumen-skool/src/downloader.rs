@@ -193,6 +193,7 @@ impl GroupDownloader<'_> {
     }
 
     async fn process_lesson(&self, ctx: &RunContext, lesson: &PlannedLesson) -> LessonOutcome {
+        lumen_download::wait_if_paused(self.cancel).await;
         if self.cancel.is_cancelled() {
             return LessonOutcome {
                 order: lesson.order,
@@ -304,6 +305,7 @@ impl GroupDownloader<'_> {
             }
         }
 
+        lumen_download::wait_if_paused(self.cancel).await;
         if !self.cancel.is_cancelled() {
             self.download_resources(lesson, resources_raw, desc, &mut issues)
                 .await;
@@ -389,6 +391,7 @@ impl GroupDownloader<'_> {
             )),
             Ok(list) => {
                 for res in list {
+                    lumen_download::wait_if_paused(self.cancel).await;
                     if self.cancel.is_cancelled() {
                         return;
                     }
@@ -431,6 +434,7 @@ impl GroupDownloader<'_> {
 
         let mut attachments = UniqueNames::default();
         for link in description_links(desc) {
+            lumen_download::wait_if_paused(self.cancel).await;
             if self.cancel.is_cancelled() {
                 return;
             }
@@ -958,6 +962,23 @@ mod tests {
         let r = run(&src, &vid).await;
         assert_eq!(issues_of(&r, IssueKind::Video).len(), 3);
         assert!(!r.report().complete);
+    }
+
+    #[tokio::test]
+    async fn a_paused_run_holds_before_the_next_lesson_until_resumed() {
+        let src = source();
+        let vid = FakeVideo::default();
+        let cancel = CancelFlag::new();
+        cancel.pause();
+        let run = run_in(tempfile::tempdir().unwrap(), &src, &vid, &cancel, 1);
+        tokio::pin!(run);
+        let held = tokio::time::timeout(std::time::Duration::from_millis(300), &mut run).await;
+        assert!(held.is_err(), "the run holds while paused");
+        assert!(vid.jobs.lock().unwrap().is_empty());
+        cancel.resume();
+        let r = run.await;
+        assert!(!r.report().cancelled);
+        assert!(!vid.jobs.lock().unwrap().is_empty());
     }
 
     #[tokio::test]

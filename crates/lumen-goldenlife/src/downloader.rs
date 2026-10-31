@@ -224,12 +224,18 @@ impl CourseDownloader<'_> {
         });
     }
 
+    /// Holds while the download is paused, then reports whether it should stop.
+    async fn checkpoint(&self, ctx: &RunContext) -> bool {
+        lumen_download::wait_if_paused(self.cancel).await;
+        self.stopped(ctx)
+    }
+
     fn stopped(&self, ctx: &RunContext) -> bool {
         self.cancel.is_cancelled() || ctx.expired.load(Ordering::SeqCst)
     }
 
     async fn process_lesson(&self, ctx: &RunContext, lesson: &PlannedLesson) -> LessonOutcome {
-        if self.stopped(ctx) {
+        if self.checkpoint(ctx).await {
             return LessonOutcome {
                 order: lesson.order,
                 skipped: true,
@@ -324,7 +330,7 @@ impl CourseDownloader<'_> {
             .await;
 
         for (i, embed) in videos.iter().enumerate() {
-            if self.stopped(ctx) {
+            if self.checkpoint(ctx).await {
                 return issues;
             }
             let n = i + 1;
@@ -409,7 +415,7 @@ impl CourseDownloader<'_> {
         let budget = name_budget(path_units(&materials), 5).min(150);
         let mut names = UniqueNames::default();
         for attachment in &page.attachments {
-            if self.stopped(ctx) {
+            if self.checkpoint(ctx).await {
                 return;
             }
             let name = unique_file_name(&mut names, &sanitize_file_name(&attachment.name, budget));
@@ -927,6 +933,25 @@ mod tests {
             !dir.join("Lesson.mp4.part").exists(),
             "interrupted leftovers are removed"
         );
+    }
+
+    #[tokio::test]
+    async fn a_paused_run_holds_before_the_next_lesson_until_resumed() {
+        let cancel = CancelFlag::new();
+        cancel.pause();
+        let run = run_with(
+            FakeApi::with(outline(&[("10", "A")])).page("10", vec![Ok(video_page(PANDA))]),
+            FakeVideos::default(),
+            1,
+            cancel.clone(),
+        );
+        tokio::pin!(run);
+        let held = tokio::time::timeout(std::time::Duration::from_millis(300), &mut run).await;
+        assert!(held.is_err(), "the run holds while paused");
+        cancel.resume();
+        let r = run.await;
+        assert_eq!(r.report().completed_lessons, 1);
+        assert_eq!(r.videos.jobs.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]
