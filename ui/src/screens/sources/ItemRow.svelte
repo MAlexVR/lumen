@@ -62,6 +62,14 @@
         <button
           type="button"
           class="btn btn-quiet"
+          onclick={() => (entry.paused ? session.resume(entry.id) : session.pause(entry.id))}
+          aria-label="{t(entry.paused ? 'dl_resume_download' : 'dl_pause_download')}: {title}"
+        >
+          <Icon name={entry.paused ? "play" : "pause"} size={16} />{t(entry.paused ? "dl_resume" : "dl_pause")}
+        </button>
+        <button
+          type="button"
+          class="btn btn-quiet"
           onclick={() => session.cancel(entry.id)}
           disabled={session.cancelling[entry.id]}
           aria-label="{t('dl_cancel_download')}: {title}"

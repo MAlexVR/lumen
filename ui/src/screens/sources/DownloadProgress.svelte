@@ -24,6 +24,9 @@
     <span class="pct num">{pct}%</span>
   </div>
   <p class="count num">{t("dl_progress_lessons", { done: entry.completed, total: entry.total || "–" })}</p>
+  {#if entry.paused}
+    <p class="paused" role="status">{t("dl_paused_note")}</p>
+  {/if}
 </div>
 
 <style>
@@ -68,5 +71,9 @@
   .count {
     font-size: var(--fs-xs);
     color: var(--text-muted);
+  }
+  .paused {
+    color: var(--lumen);
+    font-size: var(--fs-sm);
   }
 </style>

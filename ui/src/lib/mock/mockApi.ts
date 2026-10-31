@@ -148,6 +148,8 @@ export function createMockApi(): Api {
     ...createHotmartMock(params.get("hotmart"), bus),
     ...createPluralsightMock(params.get("pluralsight"), bus),
     ...createGoldenlifeMock(params.get("goldenlife"), bus),
+    downloadPause: async (id) => bus.setPaused(id, true),
+    downloadResume: async (id) => bus.setPaused(id, false),
     onDownloadProgress: bus.onProgress,
     onDownloadReport: bus.onReport,
   };

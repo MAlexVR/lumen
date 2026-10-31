@@ -165,6 +165,8 @@ export interface RunningDownload {
   platform: PlatformId;
   /** Skool group slug or Hotmart course id. */
   group: string;
+  /** The run holds at its next checkpoint until resumed. */
+  paused: boolean;
 }
 
 export interface ProgressEvent {

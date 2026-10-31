@@ -12,8 +12,8 @@ Branch: `feat/pause-downloads` (from main, not pushed). Runner: `cargo test --wo
 ## Tasks
 - T1 (S2,S3) core: pause flag on CancelFlag + `wait_if_paused` in lumen-download: inline, done (core RED compile error -> GREEN 80; wait_if_paused 3 tests written with the implementation, no separate RED), commit 443b2e9
 - T2 (S1,S2) per-item checkpoints in skool/hotmart/pluralsight/goldenlife/youtube downloaders: inline, done (RED 5 failed -> GREEN hotmart 45, goldenlife 59, skool 75, pluralsight 46, youtube 35), commit 99ad4cf
-- T3 (S3,S4,S5) DownloadManager pause/resume + running().paused + generic download_pause/download_resume commands: inline, done (RED compile errors -> GREEN lumen 190; existing skool/hotmart/youtube running() assertions updated for the additive `paused` field), commit TBD3
-- T4 (S1) UI: pause/resume buttons, state, i18n es+en, mock: inline, pending
+- T3 (S3,S4,S5) DownloadManager pause/resume + running().paused + generic download_pause/download_resume commands: inline, done (RED compile errors -> GREEN lumen 190; existing skool/hotmart/youtube running() assertions updated for the additive `paused` field), commit 630fb99
+- T4 (S1) UI: pause/resume buttons (ItemRow + YouTube), reducer state restored from running(), note under progress, i18n es+en, mock, screenshot reviewed: inline, done (RED 4+2 failed -> GREEN vitest 358, svelte-check 0 errors; workspace rust 686 passed), commit TBD4
 
 ## Log
 - L1 (2026-10-30): "agrega la funcionalidad de pausar las descargas en todas las plataformas"

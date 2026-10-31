@@ -226,6 +226,13 @@
                 <button
                   type="button"
                   class="btn btn-quiet"
+                  onclick={() => (entry.paused ? youtube.resume(entry.id) : youtube.pause(entry.id))}
+                >
+                  <Icon name={entry.paused ? "play" : "pause"} size={16} />{t(entry.paused ? "dl_resume" : "dl_pause")}
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-quiet"
                   onclick={() => youtube.cancel(entry.id)}
                   disabled={youtube.cancelling[entry.id]}
                 >

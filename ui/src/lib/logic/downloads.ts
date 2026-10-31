@@ -15,6 +15,8 @@ export interface DownloadEntry {
   completed: number;
   total: number;
   status: "running" | "finished";
+  /** Holds at the next item until resumed; always false once finished. */
+  paused: boolean;
   report: ReportEvent | null;
 }
 
@@ -25,6 +27,7 @@ export type DownloadAction =
   | { type: "attached"; running: RunningDownload[] }
   | { type: "progress"; event: ProgressEvent }
   | { type: "report"; event: ReportEvent }
+  | { type: "paused"; id: string; paused: boolean }
   | { type: "dismiss"; id: string };
 
 export const initialDownloads: DownloadsState = {};
@@ -40,6 +43,7 @@ const fresh = (id: string, platform: PlatformId, key: string | null): DownloadEn
   completed: 0,
   total: 0,
   status: "running",
+  paused: false,
   report: null,
 });
 
@@ -52,8 +56,8 @@ export function reduceDownloads(state: DownloadsState, action: DownloadAction): 
       for (const r of action.running) {
         const prev = next[r.id];
         next[r.id] = prev
-          ? { ...prev, platform: r.platform, key: r.group, status: "running" }
-          : fresh(r.id, r.platform, r.group);
+          ? { ...prev, platform: r.platform, key: r.group, status: "running", paused: r.paused }
+          : { ...fresh(r.id, r.platform, r.group), paused: r.paused };
       }
       return next;
     }
@@ -83,11 +87,17 @@ export function reduceDownloads(state: DownloadsState, action: DownloadAction): 
           ...prev,
           name: prev.name ?? e.group,
           status: "finished",
+          paused: false,
           completed: e.completedLessons,
           total: e.totalLessons,
           report: e,
         },
       };
+    }
+    case "paused": {
+      const prev = state[action.id];
+      if (!prev || prev.status !== "running") return state;
+      return { ...state, [action.id]: { ...prev, paused: action.paused } };
     }
     case "dismiss": {
       const next = { ...state };

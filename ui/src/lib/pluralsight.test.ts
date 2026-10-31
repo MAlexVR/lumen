@@ -18,7 +18,7 @@ describe("Pluralsight preview adapter", () => {
     expect(library.platforms.find((platform) => platform.id === "pluralsight")?.groups[0].id)
       .toBe("pluralsight/JavaScript Fundamentals-0123456789abcdef");
     const id = await api.pluralsightDownloadStart("course-js-101");
-    expect(await api.pluralsightDownloadsRunning()).toEqual([{ id, platform: "pluralsight", group: "course-js-101" }]);
+    expect(await api.pluralsightDownloadsRunning()).toEqual([{ id, platform: "pluralsight", group: "course-js-101", paused: false }]);
     expect(await api.pluralsightDownloadCancel(id)).toBe(true);
     await api.pluralsightLogout();
     expect(await api.pluralsightSessionStatus()).toEqual({ loggedIn: false });

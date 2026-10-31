@@ -62,10 +62,36 @@ describe("reduceDownloads", () => {
   it("re-attaches running downloads without losing known progress", () => {
     const s = run(
       { type: "progress", event: progress({ id: "dl-7", completed: 2 }) },
-      { type: "attached", running: [{ id: "dl-7", platform: "skool", group: "growth" }, { id: "dl-8", platform: "hotmart", group: "4711" }] },
+      { type: "attached", running: [{ id: "dl-7", platform: "skool", group: "growth", paused: false }, { id: "dl-8", platform: "hotmart", group: "4711", paused: true }] },
     );
     expect(s["dl-7"]).toMatchObject({ platform: "skool", key: "growth", completed: 2, status: "running" });
-    expect(s["dl-8"]).toMatchObject({ platform: "hotmart", key: "4711", status: "running" });
+    expect(s["dl-8"]).toMatchObject({ platform: "hotmart", key: "4711", status: "running", paused: true });
+    expect(s["dl-7"].paused).toBe(false);
+  });
+
+  it("pauses and resumes a running download", () => {
+    const paused = run({ type: "started", id: "dl-1", platform: "skool", key: "a" }, { type: "paused", id: "dl-1", paused: true });
+    expect(paused["dl-1"].paused).toBe(true);
+    expect(reduceDownloads(paused, { type: "paused", id: "dl-1", paused: false })["dl-1"].paused).toBe(false);
+  });
+
+  it("ignores a pause for an unknown or finished download", () => {
+    expect(run({ type: "paused", id: "dl-404", paused: true })).toEqual({});
+    const done = run(
+      { type: "started", id: "dl-1", platform: "skool", key: "a" },
+      { type: "report", event: report({ id: "dl-1" }) },
+      { type: "paused", id: "dl-1", paused: true },
+    );
+    expect(done["dl-1"].paused).toBe(false);
+  });
+
+  it("a finished download is no longer paused", () => {
+    const s = run(
+      { type: "started", id: "dl-1", platform: "skool", key: "a" },
+      { type: "paused", id: "dl-1", paused: true },
+      { type: "report", event: report({ id: "dl-1" }) },
+    );
+    expect(s["dl-1"]).toMatchObject({ status: "finished", paused: false });
   });
 
   it("creates an entry for progress of an unknown id", () => {
