@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-0.3.5-FDCC35?labelColor=122339">
+  <img alt="version" src="https://img.shields.io/badge/version-0.6.4-FDCC35?labelColor=122339">
   <img alt="platforms" src="https://img.shields.io/badge/Windows%2011%20%C2%B7%20Linux-122339">
   <img alt="stack" src="https://img.shields.io/badge/Rust%20%C2%B7%20Tauri%202%20%C2%B7%20Svelte%205-122339">
 </p>
@@ -25,7 +25,9 @@
   Videos go through `yt-dlp`; descriptions, attachments and linked files are saved next to each lesson.
   **Pause and resume** any running download (the item in flight finishes, then the queue waits), and every class that finishes shows up in the library while the rest of the queue keeps downloading.
 - **Watch offline** in a built-in classroom: home with *continue where you left off*, a library with posters per course,
-  per-module progress, and a player with custom controls (including *play from the start* and *repeat*), a workout timer with set-by-set progress for Harbiz, speed, theatre mode and keyboard shortcuts.
+  per-module progress, and a player with custom controls (play/pause, *play from the start*, ±10 s, volume, *repeat*, speed, theatre mode, picture-in-picture and full screen) and keyboard shortcuts.
+  A lesson with several videos is walked through in order, and the lessons panel lists them under the lesson that is playing (foldable).
+- **Train along** with your Harbiz workouts: the player shows, over the video and out of the way, the exercise name, the instructions, a timer for the whole workout and the set you are on with its repetitions. See [Harbiz workouts](#harbiz-workouts).
 - **Never fails silently**: every skipped or failed item ends up in a `download-report.json` and in the app.
   A course is only marked complete when nothing failed.
 - **You own the files**: choose the library folder in *Ajustes*, and delete courses from the library
@@ -33,6 +35,41 @@
   Deleting only removes files from your computer; it never touches your purchase or account.
 - **Stay up to date**: *Ajustes → Actualizaciones* checks the GitHub releases and shows the notes and the right installer for your system.
   The repository is public, so no token is needed; an optional read-only token can be saved if you point Lumen to a private fork.
+
+## Harbiz workouts
+
+Sign in with your Harbiz email and password (Lumen keeps only a session token, never the password). Your agenda, past and scheduled, is saved as
+
+```
+Harbiz/Harbiz Training/<YYYY-MM>/<date - workout title>/
+  NN. <exercise>.mp4      the demo video of each exercise (YouTube, through yt-dlp)
+  NN. <exercise>.html     only that exercise: instructions, sets and your logged results
+  Description.html        the workout summary and the exercises that have no video
+  .workout.json           the agenda data of the class (hidden)
+```
+
+- **One class per workout**, so the library counts workouts; its exercises are the videos inside it and the lessons panel lists them.
+- **Incremental**: *Update* only downloads what is not on disk yet, so workouts scheduled later are picked up on the next run. A new workout appears in the library only once it has finished downloading.
+- **Coherent**: each video is tied to its exercise by name. If the coach renames, reorders or swaps the video of an exercise, the old file moves to a hidden `.replaced/` folder (nothing is deleted) and the right one is fetched. A video shared by several exercises is downloaded once.
+- **Honest reports**: a video that no longer exists on YouTube is a warning with the reason and the full link, not a failure; after three YouTube bot checks in a row the run stops with one clear message instead of hundreds of errors.
+- **In the player** (top corners of the video): the exercise name and its instructions on the left (a button hides them); on the right the workout timer and `Serie 2/3 · 10 reps` with a check button to mark the set and move to the next one. The timer counts only while the video plays, and an exercise with sets left repeats its video instead of moving on.
+
+## Keyboard shortcuts
+
+| Key | Action |
+|---|---|
+| `Space` / `K` | Play / pause |
+| `0` / `Home` | Play from the start |
+| `J` / `L` | Back / forward 10 s |
+| `←` / `→` | Back / forward 5 s |
+| `↑` / `↓` | Volume |
+| `M` | Mute |
+| `R` | Repeat the video until you move on |
+| `S` | Mark the current set done (Harbiz workouts) |
+| `Shift` + `<` / `>` | Slower / faster |
+| `T` | Theatre mode |
+| `F` | Full screen |
+| `N` / `P` | Next / previous video (then lesson) |
 
 ## Download
 
