@@ -3,7 +3,7 @@
 // each platform has a PlatformSession built from a small adapter over its
 // commands. Initialized once at startup so events arrive on any screen.
 import type { Api } from "../api";
-import { initialDownloads, reduceDownloads, type DownloadAction, type DownloadsState } from "../logic/downloads";
+import { finishedALesson, initialDownloads, reduceDownloads, type DownloadAction, type DownloadsState } from "../logic/downloads";
 import { toDownloadError } from "../logic/downloadErrors";
 import { canonicalUrl, initialSelection, loadQuality, reduceSelection, saveQuality, type SelectionAction } from "../logic/youtube";
 import type {
@@ -369,7 +369,12 @@ export async function initDownloads(api: Api): Promise<void> {
   if (started) return;
   started = true;
   center.attach(api);
-  await api.onDownloadProgress((event) => center.dispatch({ type: "progress", event }));
+  await api.onDownloadProgress((event) => {
+    // A lesson that just finished is already on disk: show it without waiting for the whole queue.
+    const landed = finishedALesson(center.downloads, event);
+    center.dispatch({ type: "progress", event });
+    if (landed) app.rescanSoon();
+  });
   await api.onDownloadReport((event) => {
     center.dispatch({ type: "report", event });
     void app.rescan();

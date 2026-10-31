@@ -1,5 +1,6 @@
 // Application state: the scanned library and per-group progress.
 import { getApi, mediaUrl, type Api } from "../api";
+import { createCoalescer } from "../logic/coalesce";
 import { allGroups, groupById } from "../logic/library";
 import { flattenGroup, type FlatLesson } from "../logic/progress";
 import type { Group, GroupProgress, Library, RootInfo } from "../types";
@@ -7,6 +8,8 @@ import type { Group, GroupProgress, Library, RootInfo } from "../types";
 type Status = "loading" | "ready" | "error";
 
 const ACTIVE_KEY = "lumen.activeGroup";
+/** Longest wait between library rescans while downloads keep landing. */
+const RESCAN_INTERVAL_MS = 8000;
 const EMPTY: GroupProgress = { watched: [], lastLesson: null, positions: [] };
 
 function readActive(): string | null {
@@ -30,6 +33,8 @@ class AppStore {
   activeGroupName = $state<string | null>(readActive());
   #api: Api | null = null;
   #rescanHooks: (() => void)[] = [];
+  /** A queue that finishes lessons every few seconds must not rescan the library every time. */
+  #rescanSoon = createCoalescer(() => this.rescan(), RESCAN_INTERVAL_MS);
 
   /** Runs after every successful rescan (download report, library change, new root). */
   afterRescan(hook: () => void): void {
@@ -64,6 +69,11 @@ class AppStore {
       this.error = String(e);
       this.status = "error";
     }
+  }
+
+  /** Rescans soon, coalescing bursts: for lessons that finish while a queue is still running. */
+  rescanSoon(): void {
+    this.#rescanSoon.request();
   }
 
   /** Re-reads the library and progress, e.g. after a download finished. */
