@@ -66,6 +66,8 @@ export const en: Record<MessageKey, string> = {
   loop: "Repeat the video until you move on",
   video_n_of: "Video {n} of {total}",
   video_list: "Videos in this lesson",
+  videos_hide: "Hide this lesson's videos",
+  videos_show: "Show this lesson's videos",
   restart: "Play from the start",
   playback: "Playback",
   mute: "Mute",

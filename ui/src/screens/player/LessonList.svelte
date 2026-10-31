@@ -26,6 +26,26 @@
   }
   let { group, course, currentKey, watched, onpick, videos = [], videoIndex = 0, onvideo }: Props = $props();
   let list: HTMLElement | undefined = $state();
+  /** Whether the playing lesson shows its videos; one choice for every lesson, remembered. */
+  let videosOpen = $state(readOpen());
+  const uid = $props.id();
+
+  function readOpen(): boolean {
+    try {
+      return localStorage.getItem("lumen.videosOpen") !== "0";
+    } catch {
+      return true;
+    }
+  }
+
+  function toggleVideos() {
+    videosOpen = !videosOpen;
+    try {
+      localStorage.setItem("lumen.videosOpen", videosOpen ? "1" : "0");
+    } catch {
+      /* not persisted */
+    }
+  }
   const stats = $derived(courseStats(course, watched));
   const g = $derived(app.group(group));
   const wd = $derived(wording(g?.platform ?? ""));
@@ -60,30 +80,48 @@
         {#each section.lessons as lesson (lesson.key)}
           {@const done = watched.has(lesson.key)}
           {@const current = lesson.key === currentKey}
+          {@const foldable = current && videos.length > 1}
           <li class="lrow">
             <a
               href={href({ name: "watch", group, key: lesson.key })}
               aria-current={current ? "true" : undefined}
               class:done
               class:novideo={!lesson.hasVideo}
+              class:foldable
               onclick={onpick}
             >
               <span class="mark" aria-hidden="true">
                 <Icon name={done ? "check" : lesson.hasVideo ? "play" : "noVideo"} size={14} />
               </span>
               <span class="title">{displayTitle(lesson.title)}</span>
+              {#if foldable && !videosOpen}
+                <span class="vcount num">{videoIndex + 1}/{videos.length}</span>
+              {/if}
               <span class="visually-hidden">
                 {current ? t("current") : ""}
                 {done ? t("watched") : lesson.hasVideo ? t("not_watched") : t("no_video")}
               </span>
             </a>
+            {#if foldable}
+              <button
+                type="button"
+                class="fold"
+                aria-expanded={videosOpen}
+                aria-controls="videos-{uid}"
+                aria-label={t(videosOpen ? "videos_hide" : "videos_show")}
+                title={t(videosOpen ? "videos_hide" : "videos_show")}
+                onclick={toggleVideos}
+              >
+                <Icon name={videosOpen ? "chevronDown" : "chevronRight"} size={16} />
+              </button>
+            {/if}
             <span class="menu-slot">
               <ItemMenu video label={displayTitle(lesson.title)} ondelete={() => deletion.openLesson(group, lesson.key)} />
             </span>
           </li>
-          {#if current && videos.length > 1}
+          {#if current && videos.length > 1 && videosOpen}
             <li class="vlist">
-              <ol aria-label={t("video_list")}>
+              <ol id="videos-{uid}" aria-label={t("video_list")}>
                 {#each videos as video, i (video.path)}
                   <li>
                     <button type="button" aria-current={i === videoIndex ? "true" : undefined} onclick={() => onvideo?.(i)}>
@@ -189,6 +227,31 @@
   }
   .lrow > a {
     padding-right: 44px;
+  }
+  .lrow > a.foldable {
+    padding-right: 84px;
+  }
+  .fold {
+    position: absolute;
+    right: calc(var(--s-1) + 32px + var(--s-1));
+    top: 50%;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--r-2);
+    color: var(--text-muted);
+  }
+  .fold:hover,
+  .fold:focus-visible {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  .vcount {
+    grid-column: 2;
+    font-size: var(--fs-xs);
+    color: var(--lumen);
   }
   .menu-slot {
     position: absolute;

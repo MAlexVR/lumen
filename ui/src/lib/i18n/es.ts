@@ -64,6 +64,8 @@ export const es = {
   loop: "Repetir video hasta que avances",
   video_n_of: "Video {n} de {total}",
   video_list: "Videos de esta clase",
+  videos_hide: "Ocultar los videos de esta clase",
+  videos_show: "Mostrar los videos de esta clase",
   restart: "Reproducir desde el inicio",
   playback: "Reproducción",
   mute: "Silenciar",

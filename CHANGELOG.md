@@ -3,6 +3,11 @@
 All notable changes to Lumen. Format based on [Keep a Changelog](https://keepachangelog.com/); versions follow semver.
 Each release's notes and its git tag message are taken from the matching section (see `scripts/changelog-section.sh`).
 
+## [0.5.4] - 2026-10-31
+
+### Added
+- The playing lesson in the player's lessons panel can be folded: a chevron next to its menu hides or shows the list of its videos (the exercises of a workout). While folded it shows which video is playing (`3/7`). The choice is remembered.
+
 ## [0.5.3] - 2026-10-31
 
 ### Fixed
