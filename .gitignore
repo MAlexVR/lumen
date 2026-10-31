@@ -41,3 +41,6 @@ docs/screenshots/
 
 # Local credentials for live testing, never committed
 secure/
+
+# Local task logs (not published)
+/odd/
