@@ -12,7 +12,7 @@ Branch: `feat/pause-downloads` (from main, not pushed). Runner: `cargo test --wo
 ## Tasks
 - T1 (S2,S3) core: pause flag on CancelFlag + `wait_if_paused` in lumen-download: inline, done (core RED compile error -> GREEN 80; wait_if_paused 3 tests written with the implementation, no separate RED), commit 443b2e9
 - T2 (S1,S2) per-item checkpoints in skool/hotmart/pluralsight/goldenlife/youtube downloaders: inline, done (RED 5 failed -> GREEN hotmart 45, goldenlife 59, skool 75, pluralsight 46, youtube 35), commit 99ad4cf
-- T3 (S3,S4,S5) DownloadManager pause/resume + running().paused + generic commands: inline, pending
+- T3 (S3,S4,S5) DownloadManager pause/resume + running().paused + generic download_pause/download_resume commands: inline, done (RED compile errors -> GREEN lumen 190; existing skool/hotmart/youtube running() assertions updated for the additive `paused` field), commit TBD3
 - T4 (S1) UI: pause/resume buttons, state, i18n es+en, mock: inline, pending
 
 ## Log

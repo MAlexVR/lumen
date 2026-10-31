@@ -793,6 +793,27 @@ fn pluralsight_downloads_running(
     pluralsight.running()
 }
 
+/// Pauses or resumes a download of any platform: ids are unique across platforms.
+fn set_download_paused(app: &AppHandle, id: &str, paused: bool) -> bool {
+    app.state::<Arc<SkoolService>>().set_paused(id, paused)
+        || app.state::<Arc<HotmartService>>().set_paused(id, paused)
+        || app
+            .state::<Arc<PluralsightService>>()
+            .set_paused(id, paused)
+        || app.state::<Arc<YoutubeService>>().set_paused(id, paused)
+        || app.state::<Arc<GoldenlifeService>>().set_paused(id, paused)
+}
+
+#[tauri::command]
+fn download_pause(id: String, app: AppHandle) -> bool {
+    set_download_paused(&app, &id, true)
+}
+
+#[tauri::command]
+fn download_resume(id: String, app: AppHandle) -> bool {
+    set_download_paused(&app, &id, false)
+}
+
 #[tauri::command]
 async fn goldenlife_login_credentials(
     email: String,
@@ -1065,6 +1086,8 @@ pub fn run() {
             pluralsight_download_start,
             pluralsight_download_cancel,
             pluralsight_downloads_running,
+            download_pause,
+            download_resume,
             goldenlife_login_credentials,
             goldenlife_session_status,
             goldenlife_logout,

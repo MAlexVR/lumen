@@ -143,6 +143,10 @@ impl SkoolService {
     }
 
     /// Downloads in progress, so a reloaded UI can pick them up again.
+    pub fn set_paused(&self, id: &str, paused: bool) -> bool {
+        self.downloads.set_paused(id, paused)
+    }
+
     pub fn running(&self) -> Vec<RunningDownload> {
         self.downloads.running()
     }
@@ -447,12 +451,13 @@ mod tests {
             [RunningDownload {
                 id: id.clone(),
                 platform: "skool".into(),
-                group: "growth".into()
+                group: "growth".into(),
+                paused: false
             }]
         );
         assert_eq!(
             serde_json::to_value(f.service.running()).unwrap(),
-            serde_json::json!([{"id": id, "platform": "skool", "group": "growth"}])
+            serde_json::json!([{"id": id, "platform": "skool", "group": "growth", "paused": false}])
         );
         let dup = f
             .service
